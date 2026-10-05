@@ -25,6 +25,7 @@ export type Database = {
           assistant_id: string;
           available: boolean;
           campus: string | null;
+          display_name: string | null;
           id: string;
           queue: string[];
           updated_at: string;
@@ -33,6 +34,7 @@ export type Database = {
           assistant_id: string;
           available?: boolean;
           campus?: string | null;
+          display_name?: string | null;
           id?: string;
           queue?: string[];
           updated_at?: string;
@@ -41,6 +43,7 @@ export type Database = {
           assistant_id?: string;
           available?: boolean;
           campus?: string | null;
+          display_name?: string | null;
           id?: string;
           queue?: string[];
           updated_at?: string;
@@ -68,7 +71,7 @@ export type Database = {
           id?: string;
           project_id: string;
           status?: Database["public"]["Enums"]["deadline_status"];
-          user_id: string;
+          user_id?: string;
         };
         Update: {
           created_at?: string;
@@ -201,6 +204,7 @@ export type Database = {
           id: string;
           members: string[];
           project_id: string;
+          request_id: string | null;
         };
         Insert: {
           chat_id?: string;
@@ -208,6 +212,7 @@ export type Database = {
           id?: string;
           members: string[];
           project_id: string;
+          request_id?: string | null;
         };
         Update: {
           chat_id?: string;
@@ -215,6 +220,7 @@ export type Database = {
           id?: string;
           members?: string[];
           project_id?: string;
+          request_id?: string | null;
         };
         Relationships: [
           {
@@ -222,6 +228,13 @@ export type Database = {
             columns: ["project_id"];
             isOneToOne: false;
             referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "groups_request_id_fkey";
+            columns: ["request_id"];
+            isOneToOne: true;
+            referencedRelation: "group_requests";
             referencedColumns: ["id"];
           },
         ];
@@ -273,6 +286,7 @@ export type Database = {
           id: string;
           pitfalls: string[];
           project_hash: string;
+          project_label: string | null;
           score: number;
           submission_hash: string;
         };
@@ -283,6 +297,7 @@ export type Database = {
           id?: string;
           pitfalls?: string[];
           project_hash: string;
+          project_label?: string | null;
           score: number;
           submission_hash: string;
         };
@@ -293,10 +308,46 @@ export type Database = {
           id?: string;
           pitfalls?: string[];
           project_hash?: string;
+          project_label?: string | null;
           score?: number;
           submission_hash?: string;
         };
         Relationships: [];
+      };
+      notifications: {
+        Row: {
+          created_at: string;
+          id: string;
+          kind: string;
+          payload: NonNullable<Json>;
+          read_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          kind: string;
+          payload?: NonNullable<Json>;
+          read_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          payload?: NonNullable<Json>;
+          read_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       profiles: {
         Row: {
@@ -352,6 +403,7 @@ export type Database = {
       projects: {
         Row: {
           created_at: string;
+          created_by: string | null;
           deadline: string | null;
           id: string;
           intra_key: string | null;
@@ -362,6 +414,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          created_by?: string | null;
           deadline?: string | null;
           id?: string;
           intra_key?: string | null;
@@ -372,6 +425,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          created_by?: string | null;
           deadline?: string | null;
           id?: string;
           intra_key?: string | null;
@@ -380,7 +434,48 @@ export type Database = {
           type?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "projects_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      room_confirmations: {
+        Row: {
+          created_at: string;
+          report_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          report_id: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          report_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "room_confirmations_report_id_fkey";
+            columns: ["report_id"];
+            isOneToOne: false;
+            referencedRelation: "room_reports";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "room_confirmations_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       room_reports: {
         Row: {
@@ -425,11 +520,69 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      bocal_next: { Args: { p_status: string }; Returns: string };
+      group_members: {
+        Args: { p_group: string };
+        Returns: {
+          display_name: string;
+          email: string;
+          user_id: string;
+        }[];
+      };
       has_matchmaking_opt_in: { Args: { uid: string }; Returns: boolean };
       is_allowed_email: { Args: { email: string }; Returns: boolean };
       is_assistant: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_group_member: { Args: { gid: string }; Returns: boolean };
+      join_bocal_queue: { Args: { p_status: string }; Returns: number };
+      join_group_request: { Args: { p_request: string }; Returns: string };
+      leave_bocal_queue: { Args: { p_status: string }; Returns: undefined };
+      leave_group: { Args: { p_group: string }; Returns: undefined };
+      matchmaking_candidates: {
+        Args: { p_project: string };
+        Returns: {
+          availability: Json;
+          city: string;
+          criteria: Json;
+          display_name: string;
+          languages: Json;
+          members: number;
+          promo: Database["public"]["Enums"]["promo"];
+          request_id: string;
+          size: number;
+          user_id: string;
+        }[];
+      };
+      moulinette_overview: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          avg_hours: number;
+          avg_score: number;
+          pass_rate: number;
+          project: string;
+          reports: number;
+        }[];
+      };
+      moulinette_pitfalls: {
+        Args: { p_project: string };
+        Returns: {
+          occurrences: number;
+          pitfall: string;
+        }[];
+      };
+      normalize_project: { Args: { p: string }; Returns: string };
+      notify: { Args: { p_kind: string; p_payload: Json; p_user: string }; Returns: undefined };
       purge_expired_room_reports: { Args: Record<PropertyKey, never>; Returns: number };
+      submit_moulinette_report: {
+        Args: { p_comment?: string; p_hours?: number; p_pitfalls?: string[]; p_project: string; p_score: number };
+        Returns: undefined;
+      };
+      swap_partner: {
+        Args: { p_swap: string };
+        Returns: {
+          display_name: string;
+          email: string;
+        }[];
+      };
     };
     Enums: {
       deadline_status: "todo" | "in_progress" | "done" | "missed";

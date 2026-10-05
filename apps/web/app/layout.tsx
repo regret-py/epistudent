@@ -1,36 +1,35 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Jost } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/lib/auth";
 import { I18nProvider } from "@/lib/i18n/client";
-import { getDictionary, getLocale } from "@/lib/i18n/server";
+import fr from "@/lib/i18n/dictionaries/fr";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+// Geometric sans with a 900 italic: closest free cut to Futura Heavy Oblique.
+const display = Jost({ subsets: ["latin"], weight: ["700", "900"], style: ["italic", "normal"], variable: "--font-display" });
 
-export function generateMetadata(): Metadata {
-  const dict = getDictionary();
-  return { title: { default: dict.meta.title, template: `%s · ${dict.common.appName}` }, description: dict.meta.description };
-}
+export const metadata: Metadata = {
+  metadataBase: new URL("https://epistudent.fr"),
+  title: { default: fr.meta.title, template: "%s — epistudent" },
+  description: fr.meta.description,
+  openGraph: { title: "epistudent", description: fr.meta.description, url: "https://epistudent.fr", siteName: "epistudent" },
+};
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0b0b0e" },
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-  ],
+  themeColor: "#e21d27",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const locale = getLocale();
-  const dict = getDictionary(locale);
   return (
-    <html lang={locale} className="dark" suppressHydrationWarning>
-      <body className={`${inter.variable} min-h-dvh font-sans`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-          <I18nProvider locale={locale} dict={dict}>
-            {children}
+    <html lang="fr" suppressHydrationWarning>
+      <body className={`${display.variable} min-h-dvh font-sans`}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+          <I18nProvider>
+            <AuthProvider>{children}</AuthProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>

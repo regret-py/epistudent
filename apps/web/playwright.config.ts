@@ -25,9 +25,9 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        // `next start` needs a prior `next build`; CI builds in an earlier step.
-        command: `pnpm exec next start -p ${PORT}`,
-        url: `${baseURL}/login`,
+        // serves the static export (`next build` → out/), like GitHub Pages
+        command: `node e2e/static-server.mjs out ${PORT}`,
+        url: `${baseURL}/login/`,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
       },

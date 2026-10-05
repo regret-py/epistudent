@@ -161,10 +161,13 @@ site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+# The callback carries ?next=…, hence the globs. Production (dashboard › Auth › URL configuration):
+# site URL https://epistudent.fr, redirect URL https://epistudent.fr/**
 additional_redirect_urls = [
-  "http://localhost:3000/auth/callback",
-  "http://127.0.0.1:3000/auth/callback",
-  "http://127.0.0.1:3100/auth/callback",
+  "http://localhost:3000/**",
+  "http://127.0.0.1:3000/**",
+  "http://127.0.0.1:3100/**",
+  "https://epistudent.fr/**",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600

@@ -1,12 +1,13 @@
-/** shadcn/ui tokens shared by every app. Colors are CSS variables defined in the app's globals.css. */
+/** Shared design tokens (Supreme-inspired). Colors are CSS variables defined in the app's globals.css. */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
   theme: {
-    container: { center: true, padding: "1rem", screens: { "2xl": "1280px" } },
+    container: { center: true, padding: "1rem", screens: { "2xl": "1200px" } },
     extend: {
       fontFamily: {
-        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["Helvetica Neue", "Helvetica", "Arial", "sans-serif"],
+        display: ["var(--font-display)", "Futura", "Helvetica Neue", "Arial", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -14,6 +15,8 @@ module.exports = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        ink: "hsl(var(--ink))",
+        paper: "hsl(var(--paper))",
         primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))" },
         secondary: { DEFAULT: "hsl(var(--secondary))", foreground: "hsl(var(--secondary-foreground))" },
         destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
@@ -24,8 +27,8 @@ module.exports = {
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "var(--radius)",
+        sm: "var(--radius)",
       },
     },
   },

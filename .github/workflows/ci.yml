@@ -53,7 +53,7 @@ jobs:
           SUPABASE_AUTH_EXTERNAL_AZURE_SECRET=ci-placeholder
           SUPABASE_AUTH_EXTERNAL_AZURE_URL=https://login.microsoftonline.com/common
           ENV
-          pnpm exec supabase start -x vector,logflare,edge-runtime,imgproxy,supavisor,storage-api,studio,postgres-meta,mailpit,realtime
+          pnpm exec supabase start -x vector,logflare,edge-runtime,imgproxy,supavisor,storage-api,studio,postgres-meta,mailpit
           pnpm exec supabase status -o env > /tmp/sb.env
           source /tmp/sb.env
           {
@@ -67,7 +67,7 @@ jobs:
           pnpm db:types
           git diff --exit-code packages/db/src/database.types.ts
 
-      - run: pnpm --filter @studybuddy/web build
+      - run: pnpm --filter @studybuddy/web build   # static export → apps/web/out
       - run: pnpm --filter @studybuddy/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
 
