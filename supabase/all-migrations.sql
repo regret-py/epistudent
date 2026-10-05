@@ -904,3 +904,6 @@ $$;
 
 -- Realtime
 alter publication supabase_realtime add table public.notifications, public.defense_swaps, public.groups;
+
+-- make the API see the new tables immediately
+notify pgrst, 'reload schema';
