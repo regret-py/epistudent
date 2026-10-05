@@ -1,0 +1,17 @@
+# Runs the worker in Docker against the local Supabase stack.
+# The Supabase stack itself is managed by the Supabase CLI (`pnpm db:start`), which drives
+# Docker for you — see README › Why the Supabase CLI.
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    env_file: apps/worker/.env
+    environment:
+      # reach the CLI-managed Supabase stack on the host
+      SUPABASE_URL: http://host.docker.internal:54321
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
