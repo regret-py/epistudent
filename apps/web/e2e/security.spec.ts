@@ -38,8 +38,8 @@ test("hostile localStorage content is neutralised", async ({ guarded: page }) =>
 
   await page.getByLabel("budget du mois").fill("1000");
   await page.getByRole("button", { name: "changer la répartition" }).click();
-  await expect(page.getByLabel("part bouffe en pourcentage")).toHaveValue("100");
-  await expect(page.getByLabel("part sorties en pourcentage")).toHaveValue("0");
+  await expect(page.getByLabel("part « bouffe » en pourcentage")).toHaveValue("100");
+  await expect(page.getByLabel("part « sorties » en pourcentage")).toHaveValue("0");
 });
 
 test("corrupted storage doesn't break the page", async ({ guarded: page }) => {
@@ -61,4 +61,6 @@ test("404 page", async ({ page }) => {
   const res = await page.goto("/nope/");
   expect(res?.status()).toBe(404);
   await expect(page.locator(".box-logo")).toHaveText("404");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("page introuvable.");
+  await expect(page).toHaveTitle(/Page introuvable/);
 });

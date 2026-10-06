@@ -18,7 +18,7 @@ export type PlanInput = { budget: number; savings: number; rent: number };
 export type PlanLine = Category & { percent: number; month: number; week: number; day: number };
 export type Plan =
   | { ok: true; spendable: number; lines: PlanLine[]; savingsRate: number }
-  | { ok: false; reason: "empty" | "too-much" | "no-share"; missing: number };
+  | { ok: false; reason: "empty" | "too-much" | "nothing-left" | "no-share"; missing: number };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 export const WEEKS_PER_MONTH = 52 / 12;
@@ -31,7 +31,8 @@ export const DAYS_PER_MONTH = 365 / 12;
 export function buildPlan({ budget, savings, rent }: PlanInput, categories: readonly Category[] = CATEGORIES): Plan {
   if (!(budget > 0)) return { ok: false, reason: "empty", missing: 0 };
   const cents = Math.round(budget * 100) - Math.round(savings * 100) - Math.round(rent * 100);
-  if (cents <= 0) return { ok: false, reason: "too-much", missing: r2(-cents / 100) };
+  if (cents < 0) return { ok: false, reason: "too-much", missing: -cents / 100 };
+  if (cents === 0) return { ok: false, reason: "nothing-left", missing: 0 };
 
   const total = categories.reduce((s, c) => s + Math.max(0, c.share), 0);
   if (total <= 0) return { ok: false, reason: "no-share", missing: 0 };
@@ -53,15 +54,30 @@ export function buildPlan({ budget, savings, rent }: PlanInput, categories: read
   return { ok: true, spendable: cents / 100, lines, savingsRate: r2((savings / budget) * 100) };
 }
 
-/** French-friendly amount parsing: "1 200,50 €", "800", "12.5". Empty → 0, garbage → null. */
+const THOUSANDS_DOTS = /^\d{1,3}(\.\d{3})+(,\d{0,2})?$/;
+const PLAIN = /^(\d{1,7}(\.\d{0,2})?|\.\d{1,2})$/;
+
+export type AmountError = "invalid" | "max";
+
+/**
+ * French-friendly amount parsing: "1 200,50 €", "1.200", "800", "12.5", "900," (while typing), ",5".
+ * Empty → 0. Anything ambiguous or malformed ("1,234", "1,5.2") → null.
+ */
 export function parseEuros(input: string): number | null {
-  let s = input.replace(/[\s  €]/g, "");
-  if (!s) return 0;
-  if (s.includes(",") && s.includes(".")) s = s.replace(/\./g, "").replace(",", ".");
+  return checkAmount(input).value;
+}
+
+export function checkAmount(input: string): { value: number | null; error: AmountError | null } {
+  let s = input.replace(/[\s\u00a0\u202f€]/g, "");
+  if (!s) return { value: 0, error: null };
+  if (THOUSANDS_DOTS.test(s)) s = s.replace(/\./g, "").replace(",", ".");
+  else if (s.includes(",") && s.includes(".")) return { value: null, error: "invalid" };
   else s = s.replace(",", ".");
-  if (!/^\d{1,7}(\.\d{1,2})?$/.test(s)) return null;
+  if (/^\d{8,}/.test(s)) return { value: null, error: "max" };
+  if (!PLAIN.test(s)) return { value: null, error: "invalid" };
   const n = Number(s);
-  return n <= MAX_EUROS ? n : null;
+  if (n > MAX_EUROS) return { value: null, error: "max" };
+  return { value: n, error: null };
 }
 
 /** Shares come from storage/user input: clamp to whole numbers in [0, 100]. */
@@ -71,17 +87,28 @@ export function cleanShares(raw: unknown): Record<string, number> {
   const src = raw as Record<string, unknown>;
   for (const c of CATEGORIES) {
     const v = Object.prototype.hasOwnProperty.call(src, c.key) ? src[c.key] : undefined;
-    if (typeof v === "number" && Number.isFinite(v)) out[c.key] = Math.min(MAX_SHARE, Math.max(0, Math.round(v)));
+    if (typeof v === "number" && Number.isFinite(v)) out[c.key] = clampShare(v);
   }
+  // a split where every category is 0 can't be used: fall back to the default one
+  if (CATEGORIES.every((c) => (out[c.key] ?? c.share) === 0)) return {};
   return out;
+}
+
+export function clampShare(v: number): number {
+  return Math.min(MAX_SHARE, Math.max(0, Math.round(v)));
 }
 
 export function withShares(shares: Record<string, number>): Category[] {
   return CATEGORIES.map((c) => ({ ...c, share: shares[c.key] ?? c.share }));
 }
 
-const fmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 2 });
-export const euro = (n: number) => fmt.format(n);
+const fmt0 = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+const fmt2 = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Whole euros without decimals, otherwise always two: "400 €", "1 000,50 €" (never "1 000,5 €" or "-0 €"). */
+export const euro = (n: number) => {
+  const v = Object.is(n, -0) ? 0 : n;
+  return (Number.isInteger(v) ? fmt0 : fmt2).format(v);
+};
 
 /** Plain-text summary for the "copier" button. */
 export function planToText(input: PlanInput, plan: Extract<Plan, { ok: true }>): string {

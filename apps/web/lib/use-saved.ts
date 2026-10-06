@@ -19,14 +19,24 @@ export function useSaved() {
   const first = useRef(true);
 
   useEffect(() => {
+    let next = EMPTY;
     try {
       const raw: unknown = JSON.parse(localStorage.getItem(KEY) ?? "null");
       if (raw && typeof raw === "object" && !Array.isArray(raw)) {
         const r = raw as Record<string, unknown>;
-        setSaved({ budget: clip(r.budget), savings: clip(r.savings), rent: clip(r.rent), shares: cleanShares(r.shares) });
+        next = { budget: clip(r.budget), savings: clip(r.savings), rent: clip(r.rent), shares: cleanShares(r.shares) };
       }
     } catch {
       // corrupted or blocked storage: start fresh
+    }
+    // the static HTML is usable before the JS loads: keep anything typed in the meantime
+    for (const field of ["budget", "savings", "rent"] as const) {
+      const typed = (document.getElementById(field) as HTMLInputElement | null)?.value ?? "";
+      if (typed.trim()) next = { ...next, [field]: clip(typed) };
+    }
+    if (next !== EMPTY) {
+      first.current = false; // a merge of typed values must be saved too
+      setSaved(next);
     }
     setLoaded(true);
   }, []);

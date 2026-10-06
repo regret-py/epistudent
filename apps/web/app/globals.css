@@ -122,3 +122,46 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* Fluid money figures: every result cell is a size container; the font follows the cell width
+   and the length of the figure (fit-N), between 16px and the cell's own maximum. */
+@layer components {
+  .cell {
+    container-type: inline-size;
+  }
+  .amount-xl {
+    --max: 52px;
+  }
+  .amount-lg {
+    --max: 36px;
+  }
+  .amount-md {
+    --max: 38px;
+  }
+  .fitted {
+    font-size: clamp(16px, var(--fit, 20cqw), var(--max, 40px));
+    line-height: 1;
+  }
+  .fit-5 {
+    --fit: 27cqw;
+  }
+  .fit-7 {
+    --fit: 20cqw;
+  }
+  .fit-9 {
+    --fit: 15.5cqw;
+  }
+  .fit-11 {
+    --fit: 12.8cqw;
+  }
+  .fit-13 {
+    --fit: 10.8cqw;
+  }
+  .fit-99 {
+    --fit: 9cqw;
+  }
+  .title-fluid {
+    font-size: clamp(16px, 11cqw, 24px);
+    line-height: 1;
+  }
+}

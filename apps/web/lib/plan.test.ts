@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CATEGORIES, buildPlan, cleanShares, parseEuros, planToText, withShares } from "./plan";
+import { CATEGORIES, buildPlan, checkAmount, cleanShares, euro, parseEuros, planToText, withShares } from "./plan";
 
 const sumCents = (lines: { month: number }[]) => lines.reduce((s, l) => s + Math.round(l.month * 100), 0);
 
@@ -41,7 +41,8 @@ describe("buildPlan", () => {
   it("refuses impossible plans", () => {
     expect(buildPlan({ budget: 0, savings: 0, rent: 0 })).toEqual({ ok: false, reason: "empty", missing: 0 });
     expect(buildPlan({ budget: 500, savings: 200, rent: 400 })).toEqual({ ok: false, reason: "too-much", missing: 100 });
-    expect(buildPlan({ budget: 500, savings: 500, rent: 0 })).toMatchObject({ ok: false, reason: "too-much" });
+    expect(buildPlan({ budget: 500, savings: 500, rent: 0 })).toEqual({ ok: false, reason: "nothing-left", missing: 0 });
+    expect(buildPlan({ budget: 900, savings: 400, rent: 500 })).toEqual({ ok: false, reason: "nothing-left", missing: 0 });
     const zero = withShares(Object.fromEntries(CATEGORIES.map((c) => [c.key, 0])));
     expect(buildPlan({ budget: 500, savings: 0, rent: 0 }, zero)).toMatchObject({ ok: false, reason: "no-share" });
   });
@@ -55,12 +56,35 @@ describe("parseEuros", () => {
   it.each([
     ["800", 800],
     ["1 200,50 €", 1200.5],
+    ["1\u00a0200,50", 1200.5],
     ["1.200,50", 1200.5],
+    ["1.200", 1200],
+    ["1.000.000", 1000000],
     ["12.5", 12.5],
+    ["900,", 900],
+    ["900.", 900],
+    [",5", 0.5],
+    ["0", 0],
     ["", 0],
     ["  ", 0],
   ])("%j -> %s", (i, o) => expect(parseEuros(i)).toBe(o));
-  it.each(["abc", "-5", "1e3", "2000000", "1,234", "Infinity", "12,", "99999999"])("rejects %j", (i) => expect(parseEuros(i)).toBeNull());
+  it.each(["abc", "-5", "1e3", "1,234", "1,5.2", "12.50,3", "Infinity", ",", "1.2.3"])("rejects %j", (i) => expect(parseEuros(i)).toBeNull());
+
+  it("tells a too-large amount from a malformed one", () => {
+    expect(checkAmount("2000000").error).toBe("max");
+    expect(checkAmount("99999999").error).toBe("max");
+    expect(checkAmount("abc").error).toBe("invalid");
+    expect(checkAmount("1 000 000").error).toBeNull();
+  });
+});
+
+describe("euro", () => {
+  it("shows no decimals for whole euros and always two otherwise", () => {
+    expect(euro(400)).toMatch(/^400\s€$/);
+    expect(euro(1000.5)).toMatch(/^1\s000,50\s€$/);
+    expect(euro(12.34)).toMatch(/^12,34\s€$/);
+    expect(euro(-0)).toMatch(/^0\s€$/);
+  });
 });
 
 describe("cleanShares (untrusted storage)", () => {
@@ -71,6 +95,10 @@ describe("cleanShares (untrusted storage)", () => {
   });
   it("ignores garbage", () => {
     for (const raw of [null, 3, "x", [1, 2]]) expect(cleanShares(raw)).toEqual({});
+  });
+  it("drops an all-zero split so nobody gets stuck", () => {
+    expect(cleanShares(Object.fromEntries(CATEGORIES.map((c) => [c.key, 0])))).toEqual({});
+    expect(cleanShares({ ...Object.fromEntries(CATEGORIES.map((c) => [c.key, 0])), sorties: 1 })).toMatchObject({ sorties: 1 });
   });
 });
 

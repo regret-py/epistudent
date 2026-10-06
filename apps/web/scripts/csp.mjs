@@ -1,11 +1,13 @@
 // Post-build: inject a strict Content-Security-Policy <meta> into every exported page.
 // GitHub Pages can't send headers, so the policy lives in the HTML. Inline scripts emitted
 // by Next (hydration data, theme bootstrap) are allowed by their exact SHA-256, nothing else.
+// Fails the build if a page would ship without a policy or with inline styles.
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const OUT = new URL("../out/", import.meta.url).pathname;
+const OUT = fileURLToPath(new URL("../out/", import.meta.url));
 
 function htmlFiles(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -16,19 +18,26 @@ function htmlFiles(dir) {
 }
 
 const sha = (text) => `'sha256-${createHash("sha256").update(text, "utf8").digest("base64")}'`;
+const META_RE = /<meta http-equiv="Content-Security-Policy"[^>]*>/i;
 
 let problems = 0;
-for (const file of htmlFiles(OUT)) {
-  let html = readFileSync(file, "utf8");
-  if (html.includes('http-equiv="Content-Security-Policy"')) continue;
+const files = htmlFiles(OUT);
+if (files.length === 0) {
+  console.error(`csp: no HTML found in ${OUT}`);
+  process.exit(1);
+}
+
+for (const file of files) {
+  const name = join("out", relative(OUT, file));
+  // idempotent: drop a policy from a previous run before hashing again
+  let html = readFileSync(file, "utf8").replace(META_RE, "");
 
   const hashes = new Set();
-  for (const m of html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)) hashes.add(sha(m[1]));
+  for (const m of html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)) hashes.add(sha(m[1]));
 
-  // style-src 'self' forbids inline styles: refuse to ship a page that would break
-  const inlineStyles = html.match(/<style[\s>]|\sstyle="/g);
+  const inlineStyles = html.match(/<style[\s>]|\sstyle=["']/gi);
   if (inlineStyles) {
-    console.error(`csp: ${file} contains inline styles (${inlineStyles.length}); remove them or the page will render unstyled.`);
+    console.error(`csp: ${name} contains ${inlineStyles.length} inline style(s); style-src 'self' would block them.`);
     problems++;
   }
 
@@ -36,9 +45,9 @@ for (const file of htmlFiles(OUT)) {
     "default-src 'none'",
     `script-src 'self' ${[...hashes].join(" ")}`.trim(),
     "style-src 'self'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data:",
     "font-src 'self'",
-    // only Next's own RSC payloads (same origin); no third party can ever be contacted
+    // only Next's own payloads (same origin); no third party can ever be contacted
     "connect-src 'self'",
     "manifest-src 'self'",
     "base-uri 'none'",
@@ -48,13 +57,19 @@ for (const file of htmlFiles(OUT)) {
     "worker-src 'none'",
     "upgrade-insecure-requests",
   ].join("; ");
-
   const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}"/>`;
-  // right after the charset so it governs everything that follows
-  html = html.replace(/(<meta charSet="utf-8"\/>)/i, `$1${meta}`);
-  if (!html.includes(meta)) html = html.replace("<head>", `<head>${meta}`);
+
+  // right after the charset (or at the very start of <head>) so it governs everything that follows
+  if (/<meta charset="utf-8"\s*\/?>/i.test(html)) html = html.replace(/(<meta charset="utf-8"\s*\/?>)/i, `$1${meta}`);
+  else html = html.replace(/<head\b[^>]*>/i, (head) => `${head}${meta}`);
+
+  if (!html.includes(meta)) {
+    console.error(`csp: could not inject the policy into ${name}`);
+    problems++;
+    continue;
+  }
   writeFileSync(file, html);
-  console.log(`csp: ${file.replace(OUT, "out/")} (${hashes.size} inline script hashes)`);
+  console.log(`csp: ${name} (${hashes.size} inline script hashes)`);
 }
 
 if (problems) process.exit(1);
