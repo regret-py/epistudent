@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Supreme-inspired: white page, black type, one red, square corners. */
+/* Supreme-inspired, strictly black & white: paper, ink, hairlines, square corners. */
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -11,46 +11,48 @@
     --card-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 0%;
-    --primary: 357 85% 52%;
+    --primary: 0 0% 0%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 95%;
+    --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 0%;
     --muted: 0 0% 95%;
-    --muted-foreground: 0 0% 40%;
-    --accent: 0 0% 93%;
+    --muted-foreground: 0 0% 38%;
+    --accent: 0 0% 92%;
     --accent-foreground: 0 0% 0%;
-    --destructive: 357 85% 45%;
+    --destructive: 0 0% 0%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 85%;
+    --border: 0 0% 84%;
     --input: 0 0% 0%;
-    --ring: 357 85% 52%;
+    --ring: 0 0% 0%;
     --radius: 0rem;
     --ink: 0 0% 0%;
     --paper: 0 0% 100%;
+    color-scheme: light;
   }
 
   .dark {
     --background: 0 0% 0%;
     --foreground: 0 0% 100%;
-    --card: 0 0% 4%;
+    --card: 0 0% 0%;
     --card-foreground: 0 0% 100%;
     --popover: 0 0% 4%;
     --popover-foreground: 0 0% 100%;
-    --primary: 357 85% 52%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 12%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 62%;
+    --muted: 0 0% 9%;
+    --muted-foreground: 0 0% 66%;
     --accent: 0 0% 14%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 357 85% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 18%;
+    --destructive: 0 0% 100%;
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 22%;
     --input: 0 0% 100%;
-    --ring: 357 85% 52%;
+    --ring: 0 0% 100%;
     --ink: 0 0% 100%;
     --paper: 0 0% 0%;
+    color-scheme: dark;
   }
 }
 
@@ -60,30 +62,63 @@
   }
   html {
     -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
   }
   body {
     @apply bg-background text-[13px] leading-snug text-foreground antialiased;
+    font-feature-settings: "tnum" 1;
   }
   ::selection {
-    @apply bg-primary text-primary-foreground;
+    @apply bg-ink text-paper;
+  }
+  :focus-visible {
+    outline: 2px solid hsl(var(--ink));
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
 @layer components {
-  /* the box logo */
+  /* the box logo: ink box, paper heavy oblique */
   .box-logo {
-    @apply inline-block bg-primary px-[0.32em] pb-[0.06em] pt-[0.02em] font-display font-black italic leading-none tracking-[-0.02em] text-white;
+    @apply inline-block select-none bg-ink px-[0.3em] pb-[0.07em] pt-[0.03em] font-display font-black italic leading-none tracking-[-0.03em] text-paper;
   }
   .field {
-    @apply h-10 w-full border border-input bg-background px-3 text-[13px] outline-none transition-colors placeholder:text-muted-foreground focus:border-primary;
+    @apply h-11 w-full border border-input bg-background px-3 text-[14px] outline-none transition-colors placeholder:text-muted-foreground focus:bg-muted;
   }
   .label {
-    @apply mb-1 block text-[11px] font-bold uppercase tracking-wider;
+    @apply mb-1.5 block text-[10px] font-bold uppercase tracking-[0.18em];
   }
   .link {
-    @apply underline-offset-2 hover:text-primary hover:underline;
+    @apply underline-offset-[3px] hover:underline;
   }
   .section-title {
-    @apply mb-3 border-b border-foreground pb-1 text-[11px] font-bold uppercase tracking-[0.15em];
+    @apply mb-4 flex items-baseline justify-between border-b-2 border-ink pb-1.5 text-[11px] font-bold uppercase tracking-[0.2em];
+  }
+  .display {
+    @apply font-display font-black italic leading-[0.9] tracking-[-0.03em];
+  }
+  /* hatching marks "in the red" without any red */
+  .hatch {
+    background-image: repeating-linear-gradient(-45deg, hsl(var(--ink)) 0 1.5px, transparent 1.5px 7px);
+  }
+  .hatch-paper {
+    background-image: repeating-linear-gradient(-45deg, hsl(var(--paper) / 0.35) 0 1.5px, transparent 1.5px 7px);
+  }
+  .invert-hover {
+    @apply transition-colors hover:bg-ink hover:text-paper;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }

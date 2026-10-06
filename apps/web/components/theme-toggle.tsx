@@ -9,8 +9,14 @@ export function ThemeToggle() {
   useEffect(() => setMounted(true), []);
   const dark = mounted && resolvedTheme === "dark";
   return (
-    <button type="button" className="link text-[11px] lowercase" data-testid="theme-toggle" onClick={() => setTheme(dark ? "light" : "dark")}>
-      thème : {dark ? "sombre" : "clair"}
+    <button
+      type="button"
+      className="link text-[11px] lowercase"
+      data-testid="theme-toggle"
+      aria-label={dark ? "passer en thème clair" : "passer en thème sombre"}
+      onClick={() => setTheme(dark ? "light" : "dark")}
+    >
+      {dark ? "◐ clair" : "◑ sombre"}
     </button>
   );
 }
