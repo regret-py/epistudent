@@ -11,7 +11,7 @@ const isEmpty = (s: Saved) =>
   !s.budget && !s.savings && !s.rent && !s.goal.target && !Object.keys(s.shares).length && !Object.keys(s.tracker.spent).length;
 
 /**
- * Google account + sync of the whole budget to the `budgets` table (RLS: own row only).
+ * Microsoft account + sync of the whole budget to the `budgets` table (RLS: own row only).
  * First sign-in uploads what's on the device; afterwards the account copy wins and every
  * change is saved after a short pause. Last write wins across devices.
  */
@@ -30,7 +30,7 @@ export function useAccount({ saved, setSaved, loaded, forget }: { saved: Saved; 
     const client = supabase();
     const params = new URLSearchParams(window.location.search);
     const oauthError = params.get("error_description") ?? params.get("error");
-    if (oauthError) setNotice("La connexion Google a échoué. Réessaie.");
+    if (oauthError) setNotice("La connexion Microsoft a échoué. Réessaie.");
     let active = true;
     client.auth.getSession().then(({ data }) => {
       if (!active) return;
@@ -95,11 +95,12 @@ export function useAccount({ saved, setSaved, loaded, forget }: { saved: Saved; 
 
   const signIn = useCallback(async () => {
     setNotice(null);
+    // Supabase calls the Microsoft provider "azure"
     const { error } = await supabase().auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/`, queryParams: { prompt: "select_account" } },
+      provider: "azure",
+      options: { redirectTo: `${window.location.origin}/`, scopes: "openid email profile", queryParams: { prompt: "select_account" } },
     });
-    if (error) setNotice("La connexion Google a échoué. Réessaie.");
+    if (error) setNotice("La connexion Microsoft a échoué. Réessaie.");
   }, []);
 
   const signOut = useCallback(async () => {

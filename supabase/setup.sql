@@ -1,6 +1,6 @@
 -- epistudent — to paste ONCE in Supabase › SQL Editor › New query › Run.
 -- 1) removes everything the previous versions of the site created (old tables, the @epitech.eu-only trigger…)
--- 2) creates the budgets table used by Google accounts.
+-- 2) creates the budgets table used by Microsoft accounts.
 
 drop trigger if exists on_auth_user_created on auth.users;
 drop trigger if exists enforce_epitech_email on auth.users;

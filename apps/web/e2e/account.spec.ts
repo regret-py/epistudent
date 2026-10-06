@@ -7,13 +7,14 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
-test("Google sign-in starts a PKCE OAuth flow back to the site", async ({ guarded: page, baseURL }) => {
+test("Microsoft sign-in starts a PKCE OAuth flow back to the site", async ({ guarded: page, baseURL }) => {
   await page.goto("/");
   const authorize = page.waitForRequest((r) => r.url().includes("/auth/v1/authorize"));
   await page.route("**/auth/v1/authorize**", (route) => route.fulfill({ status: 200, body: "stub" }));
-  await page.getByTestId("google-sign-in").click();
+  await page.getByTestId("microsoft-sign-in").click();
   const u = new URL((await authorize).url());
-  expect(u.searchParams.get("provider")).toBe("google");
+  expect(u.searchParams.get("provider")).toBe("azure");
+  expect(u.searchParams.get("scopes")).toContain("email");
   expect(u.searchParams.get("code_challenge_method")).toBe("s256");
   expect(u.searchParams.get("redirect_to")).toBe(`${baseURL}/`);
 });
@@ -34,7 +35,7 @@ test.describe("with a real Supabase", () => {
     return { id: data.user.id, email, session: s.session as Session };
   }
 
-  // stands in for the Google redirect: put the session where supabase-js looks for it, once
+  // stands in for the Microsoft redirect: put the session where supabase-js looks for it, once
   async function signIn(page: Page, session: Session) {
     if (page.url() === "about:blank") await page.goto("/");
     await page.evaluate((value) => localStorage.setItem("epistudent-auth", value), JSON.stringify(session));
@@ -83,7 +84,7 @@ test.describe("with a real Supabase", () => {
     await page.getByTestId("delete-account").click();
     await expect(page.getByTestId("account-notice")).toContainText("Compte et données supprimés");
     await expect(page.getByLabel("budget du mois")).toHaveValue("");
-    await expect(page.getByTestId("google-sign-in")).toBeVisible();
+    await expect(page.getByTestId("microsoft-sign-in")).toBeVisible();
     expect((await admin().from("budgets").select("user_id").eq("user_id", user.id)).data).toEqual([]);
     expect((await admin().auth.admin.getUserById(user.id)).data.user).toBeNull();
     expect(errors).toEqual([]);

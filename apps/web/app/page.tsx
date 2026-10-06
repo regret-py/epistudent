@@ -53,7 +53,7 @@ const FAQ = [
   },
   {
     q: "Mes chiffres sont-ils envoyés quelque part ?",
-    a: "Sans compte, non : le calcul se fait dans ton navigateur et tes montants restent sur ton appareil. Si tu te connectes avec Google, ton budget est sauvegardé dans ton compte (et seulement lisible par toi) pour le retrouver sur ton téléphone et ton ordi. Tu peux supprimer ton compte et tes données à tout moment.",
+    a: "Sans compte, non : le calcul se fait dans ton navigateur et tes montants restent sur ton appareil. Si tu te connectes avec Microsoft, ton budget est sauvegardé dans ton compte (et seulement lisible par toi) pour le retrouver sur ton téléphone et ton ordi. Tu peux supprimer ton compte et tes données à tout moment.",
   },
 ];
 
@@ -709,12 +709,12 @@ function AccountPanel({ account }: { account: Account }) {
         <div className="bg-background p-4 sm:p-5">
           <p className="display text-[24px] leading-tight">retrouve ton budget partout.</p>
           <p className="mt-2 text-muted-foreground">
-            Connecte-toi avec Google pour sauvegarder ton budget, ton suivi et ton objectif, et les retrouver sur ton téléphone comme sur ton ordi. Facultatif : sans compte, tout marche quand même sur cet appareil.
+            Connecte-toi avec ton compte Microsoft (Outlook, Hotmail ou école) pour sauvegarder ton budget, ton suivi et ton objectif, et les retrouver sur ton téléphone comme sur ton ordi. Facultatif : sans compte, tout marche quand même sur cet appareil.
           </p>
         </div>
         <div className="flex items-center bg-background p-4 sm:p-5">
-          <Button size="lg" className="w-full" onClick={() => void account.signIn()} data-testid="google-sign-in">
-            <GoogleMark /> continuer avec google
+          <Button size="lg" className="w-full" onClick={() => void account.signIn()} data-testid="microsoft-sign-in">
+            <MicrosoftMark /> continuer avec microsoft
           </Button>
         </div>
       </div>
@@ -757,13 +757,14 @@ function AccountPanel({ account }: { account: Account }) {
   );
 }
 
-function GoogleMark() {
+function MicrosoftMark() {
+  // the four squares, in shades of the current colour (the site stays black & white)
   return (
-    <svg viewBox="0 0 24 24" aria-hidden className="size-4">
-      <path className="fill-current" d="M21.6 12.23c0-.68-.06-1.36-.18-2.02H12v3.83h5.4a4.6 4.6 0 0 1-2 3.03v2.5h3.24c1.9-1.75 2.96-4.33 2.96-7.34Z" />
-      <path className="fill-current" opacity="0.75" d="M12 22c2.7 0 4.97-.9 6.63-2.43l-3.24-2.5c-.9.6-2.04.96-3.39.96-2.6 0-4.81-1.76-5.6-4.12H3.07v2.58A10 10 0 0 0 12 22Z" />
-      <path className="fill-current" opacity="0.55" d="M6.4 13.91a6 6 0 0 1 0-3.82V7.51H3.07a10 10 0 0 0 0 8.98l3.33-2.58Z" />
-      <path className="fill-current" opacity="0.85" d="M12 5.98c1.47 0 2.79.5 3.83 1.5l2.87-2.87A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.93 5.51l3.33 2.58C7.19 7.74 9.4 5.98 12 5.98Z" />
+    <svg viewBox="0 0 21 21" aria-hidden className="size-4">
+      <rect x="1" y="1" width="9" height="9" className="fill-current" />
+      <rect x="11" y="1" width="9" height="9" className="fill-current" opacity="0.75" />
+      <rect x="1" y="11" width="9" height="9" className="fill-current" opacity="0.55" />
+      <rect x="11" y="11" width="9" height="9" className="fill-current" opacity="0.85" />
     </svg>
   );
 }
