@@ -25,6 +25,7 @@ import {
   withShares,
   type PlanLine,
 } from "@/lib/plan";
+import { useAccount } from "@/lib/use-account";
 import { useSaved } from "@/lib/use-saved";
 
 const FIELDS = [
@@ -52,14 +53,15 @@ const FAQ = [
   },
   {
     q: "Mes chiffres sont-ils envoyés quelque part ?",
-    a: "Non. Il n'y a ni compte ni serveur : le calcul se fait dans ton navigateur et tes montants restent sur ton appareil.",
+    a: "Sans compte, non : le calcul se fait dans ton navigateur et tes montants restent sur ton appareil. Si tu te connectes avec Google, ton budget est sauvegardé dans ton compte (et seulement lisible par toi) pour le retrouver sur ton téléphone et ton ordi. Tu peux supprimer ton compte et tes données à tout moment.",
   },
 ];
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 export default function PlanPage() {
-  const { saved, setSaved, loaded, reset, fromLink } = useSaved();
+  const { saved, setSaved, loaded, reset, forget, fromLink } = useSaved();
+  const account = useAccount({ saved, setSaved, loaded, forget });
   const [trackingOpen, setTrackingOpen] = useState<boolean | null>(null);
   const [linkState, setLinkState] = useState<"ok" | "error" | null>(null);
   const [customizing, setCustomizing] = useState(false);
@@ -169,7 +171,8 @@ export default function PlanPage() {
           <a href="/" aria-label="epistudent, accueil" className="py-1">
             <BoxLogo className="text-[26px] sm:text-[32px]" />
           </a>
-          <span className="no-print">
+          <span className="no-print flex items-center gap-1">
+            <AccountButton account={account} />
             <ThemeToggle />
           </span>
         </div>
@@ -207,6 +210,15 @@ export default function PlanPage() {
               </button>
             ))}
           </div>
+        )}
+
+        {account.notice && (
+          <p className="no-print mt-4 flex items-start justify-between gap-3 border-2 border-ink px-4 py-2 text-[12px]" role="status" data-testid="account-notice">
+            <span>{account.notice}</span>
+            <button type="button" className="link shrink-0" aria-label="fermer le message" onClick={() => account.setNotice(null)}>
+              ✕
+            </button>
+          </p>
         )}
 
         {fromLink && (
@@ -325,6 +337,10 @@ export default function PlanPage() {
           </Section>
         )}
 
+        <Section title="ton compte" id="compte" className="no-print mt-16">
+          <AccountPanel account={account} />
+        </Section>
+
         <Section title="questions" id="faq" className="no-print mt-20">
           <dl className="divide-y divide-border border-b border-border">
             {FAQ.map((f) => (
@@ -342,7 +358,7 @@ export default function PlanPage() {
           <span>
             <strong className="font-display font-black italic">epistudent</strong> — fait par des étudiants, pour les étudiants.
           </span>
-          <span className="text-muted-foreground">aucun compte · aucun serveur · aucun traceur</span>
+          <span className="text-muted-foreground">compte optionnel · aucune pub · aucun traceur</span>
         </div>
       </footer>
     </div>
@@ -651,5 +667,103 @@ function Goal({ goal, perMonth, onChange }: { goal: { label: string; target: str
         )}
       </div>
     </div>
+  );
+}
+
+type Account = ReturnType<typeof useAccount>;
+
+const SYNC_LABEL: Record<string, string> = {
+  idle: "",
+  loading: "synchronisation…",
+  saving: "sauvegarde…",
+  saved: "sauvegardé ✓",
+  error: "hors ligne, réessai à la prochaine modif",
+};
+
+function AccountButton({ account }: { account: Account }) {
+  if (!account.ready) return null;
+  if (!account.session) {
+    return (
+      <button type="button" className="link min-h-11 px-2 text-[12px] lowercase" onClick={() => void account.signIn()} data-testid="sign-in">
+        se connecter
+      </button>
+    );
+  }
+  const email = account.session.user.email ?? "";
+  return (
+    <a href="#compte" className="link flex min-h-11 items-center gap-2 px-2 text-[12px] lowercase" data-testid="account-chip" title={email}>
+      <span aria-hidden className="grid size-6 place-items-center bg-ink text-[11px] font-bold uppercase text-paper">
+        {email.slice(0, 1) || "?"}
+      </span>
+      <span className="hidden sm:inline">mon compte</span>
+    </a>
+  );
+}
+
+function AccountPanel({ account }: { account: Account }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  if (!account.ready) return null;
+  if (!account.session) {
+    return (
+      <div className="grid gap-px border-2 border-ink bg-ink sm:grid-cols-[1.5fr_1fr]">
+        <div className="bg-background p-4 sm:p-5">
+          <p className="display text-[24px] leading-tight">retrouve ton budget partout.</p>
+          <p className="mt-2 text-muted-foreground">
+            Connecte-toi avec Google pour sauvegarder ton budget, ton suivi et ton objectif, et les retrouver sur ton téléphone comme sur ton ordi. Facultatif : sans compte, tout marche quand même sur cet appareil.
+          </p>
+        </div>
+        <div className="flex items-center bg-background p-4 sm:p-5">
+          <Button size="lg" className="w-full" onClick={() => void account.signIn()} data-testid="google-sign-in">
+            <GoogleMark /> continuer avec google
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  const user = account.session.user;
+  const name = (user.user_metadata?.full_name as string | undefined) ?? user.email ?? "";
+  return (
+    <div className="grid gap-px border-2 border-ink bg-ink sm:grid-cols-[1.5fr_1fr]">
+      <div className="bg-background p-4 sm:p-5">
+        <div className="text-[10px] font-bold uppercase tracking-[0.2em]">connecté</div>
+        <p className="display mt-2 break-all text-[22px] leading-tight" data-testid="account-name">
+          {name}
+        </p>
+        <p className="mt-1 text-[12px] text-muted-foreground">{user.email}</p>
+        <p className="mt-3 text-[12px] font-bold" data-testid="sync-status" aria-live="off">
+          {SYNC_LABEL[account.status]}
+        </p>
+      </div>
+      <div className="flex flex-col justify-center gap-2 bg-background p-4 sm:p-5">
+        <Button variant="outline" onClick={() => void account.signOut()} data-testid="sign-out">
+          se déconnecter
+        </Button>
+        <Button
+          variant={confirmDelete ? "default" : "outline"}
+          onClick={() => {
+            if (!confirmDelete) {
+              setConfirmDelete(true);
+              setTimeout(() => setConfirmDelete(false), 5000);
+              return;
+            }
+            void account.deleteAccount();
+          }}
+          data-testid="delete-account"
+        >
+          {confirmDelete ? "sûr ? tout supprimer" : "supprimer mon compte"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className="size-4">
+      <path className="fill-current" d="M21.6 12.23c0-.68-.06-1.36-.18-2.02H12v3.83h5.4a4.6 4.6 0 0 1-2 3.03v2.5h3.24c1.9-1.75 2.96-4.33 2.96-7.34Z" />
+      <path className="fill-current" opacity="0.75" d="M12 22c2.7 0 4.97-.9 6.63-2.43l-3.24-2.5c-.9.6-2.04.96-3.39.96-2.6 0-4.81-1.76-5.6-4.12H3.07v2.58A10 10 0 0 0 12 22Z" />
+      <path className="fill-current" opacity="0.55" d="M6.4 13.91a6 6 0 0 1 0-3.82V7.51H3.07a10 10 0 0 0 0 8.98l3.33-2.58Z" />
+      <path className="fill-current" opacity="0.85" d="M12 5.98c1.47 0 2.79.5 3.83 1.5l2.87-2.87A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.93 5.51l3.33 2.58C7.19 7.74 9.4 5.98 12 5.98Z" />
+    </svg>
   );
 }

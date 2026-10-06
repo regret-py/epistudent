@@ -20,7 +20,22 @@ function clip(v: unknown, max = 20): string {
   return typeof v === "string" ? v.slice(0, max) : "";
 }
 
-/** Inputs remembered in this browser only (never sent anywhere). */
+/** Validates saved data from localStorage or from the account (both untrusted). */
+export function cleanSaved(raw: unknown): Saved {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return emptySaved();
+  const r = raw as Record<string, unknown>;
+  const g = (r.goal && typeof r.goal === "object" && !Array.isArray(r.goal) ? r.goal : {}) as Record<string, unknown>;
+  return {
+    budget: clip(r.budget),
+    savings: clip(r.savings),
+    rent: clip(r.rent),
+    shares: cleanShares(r.shares),
+    tracker: cleanTracker(r.tracker),
+    goal: { label: clip(g.label, 40), target: clip(g.target) },
+  };
+}
+
+/** Inputs remembered in this browser (and in the account when signed in). */
 export function useSaved() {
   const [saved, setSaved] = useState<Saved>(emptySaved);
   const [loaded, setLoaded] = useState(false);
@@ -33,16 +48,7 @@ export function useSaved() {
     try {
       const raw: unknown = JSON.parse(localStorage.getItem(KEY) ?? "null");
       if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-        const r = raw as Record<string, unknown>;
-        const g = (r.goal && typeof r.goal === "object" ? r.goal : {}) as Record<string, unknown>;
-        next = {
-          budget: clip(r.budget),
-          savings: clip(r.savings),
-          rent: clip(r.rent),
-          shares: cleanShares(r.shares),
-          tracker: cleanTracker(r.tracker),
-          goal: { label: clip(g.label, 40), target: clip(g.target) },
-        };
+        next = cleanSaved(raw);
         changed = true;
       }
     } catch {
@@ -93,5 +99,11 @@ export function useSaved() {
     }
   };
 
-  return { saved, setSaved, loaded, reset, fromLink };
+  /** Wipes this device's copy (used on sign-out so a shared computer keeps nothing). */
+  const forget = () => {
+    first.current = true;
+    reset();
+  };
+
+  return { saved, setSaved, loaded, reset, forget, fromLink };
 }

@@ -11,16 +11,21 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "test:e2e": "pnpm --filter @studybuddy/web test:e2e"
+    "test:e2e": "pnpm --filter @studybuddy/web test:e2e",
+    "db:start": "supabase start -x vector,logflare,edge-runtime,imgproxy,supavisor,storage-api,studio,postgres-meta,mailpit,realtime",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset"
   },
   "devDependencies": {
     "prettier": "^3.9.9",
+    "supabase": "^2.119.0",
     "typescript": "^5.6.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "sharp"
+      "sharp",
+      "supabase"
     ]
   }
 }

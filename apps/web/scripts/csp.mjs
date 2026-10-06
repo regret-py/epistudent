@@ -8,6 +8,8 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const OUT = fileURLToPath(new URL("../out/", import.meta.url));
+// the only third party the page may talk to: the Supabase project (accounts + sync)
+const SUPABASE_ORIGIN = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "https://gayltuhbhsojbrfmjzvg.supabase.co").origin;
 
 function htmlFiles(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -47,8 +49,8 @@ for (const file of files) {
     "style-src 'self'",
     "img-src 'self' data:",
     "font-src 'self'",
-    // only Next's own payloads (same origin); no third party can ever be contacted
-    "connect-src 'self'",
+    // Next's own payloads + the Supabase API; nothing else can be contacted
+    `connect-src 'self' ${SUPABASE_ORIGIN}`,
     "manifest-src 'self'",
     "base-uri 'none'",
     "form-action 'none'",
