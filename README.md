@@ -15,7 +15,11 @@ Tu entres ton **budget du mois**, l'**épargne** que tu veux mettre de côté et
 | imprévus | 8 % |
 
 - Répartition au centime près (la somme des postes = le montant à dépenser).
-- Pourcentages personnalisables, bouton « copier mon budget », remise à zéro, thème clair / sombre.
+- **Profils** : équilibré, chez les parents, coloc / studio, budget serré.
+- **Suivi des dépenses du mois** par poste : dépensé, reste, reste par jour jusqu'à la fin du mois (remis à zéro chaque mois).
+- **Objectif d'épargne** : « 600 € pour un ordi » → nombre de mois et date d'arrivée.
+- **Lien de partage** : les montants voyagent dans le fragment `#…` de l'URL, jamais envoyé à un serveur.
+- Équivalence en repas, impression / PDF, pourcentages personnalisables, copier, remise à zéro, thème clair / sombre.
 - Sans compte, sans serveur, sans traceur : le calcul se fait dans le navigateur, les montants restent dans `localStorage`.
 
 ## Stack

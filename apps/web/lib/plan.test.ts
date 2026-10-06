@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { CATEGORIES, buildPlan, checkAmount, cleanShares, euro, parseEuros, planToText, withShares } from "./plan";
+import {
+  CATEGORIES,
+  PROFILES,
+  buildPlan,
+  checkAmount,
+  cleanShares,
+  cleanTracker,
+  daysLeftInMonth,
+  decodeShare,
+  encodeShare,
+  euro,
+  matchProfile,
+  mealsPerWeek,
+  monthsToGoal,
+  parseEuros,
+  planToText,
+  withShares,
+} from "./plan";
 
 const sumCents = (lines: { month: number }[]) => lines.reduce((s, l) => s + Math.round(l.month * 100), 0);
 
@@ -110,5 +127,60 @@ describe("planToText", () => {
     const text = planToText(input, p);
     expect(text).toContain("À dépenser : 400");
     expect(text).toMatch(/bouffe : 160\s€\/mois/);
+  });
+});
+
+
+describe("profiles", () => {
+  it("each profile sums to 100 and is recognised", () => {
+    for (const p of PROFILES) {
+      expect(withShares(p.shares).reduce((s, c) => s + c.share, 0)).toBe(100);
+      expect(matchProfile(p.shares)).toBe(p.key);
+    }
+    expect(matchProfile({ bouffe: 41 })).toBeNull();
+  });
+});
+
+describe("tracker", () => {
+  const now = new Date(2026, 9, 22);
+  it("keeps this month's valid amounts only", () => {
+    expect(cleanTracker({ month: "2026-10", spent: { bouffe: 12.345, sorties: -3, evil: 5, shopping: "9" } }, now)).toEqual({ month: "2026-10", spent: { bouffe: 12.35 } });
+  });
+  it("starts fresh in a new month or on garbage", () => {
+    expect(cleanTracker({ month: "2026-09", spent: { bouffe: 50 } }, now)).toEqual({ month: "2026-10", spent: {} });
+    expect(cleanTracker("x", now)).toEqual({ month: "2026-10", spent: {} });
+  });
+  it("counts days left, today included", () => {
+    expect(daysLeftInMonth(now)).toBe(10);
+    expect(daysLeftInMonth(new Date(2026, 1, 28))).toBe(1);
+  });
+});
+
+describe("goal", () => {
+  it("computes months to reach a target", () => {
+    expect(monthsToGoal(600, 100)).toBe(6);
+    expect(monthsToGoal(601, 100)).toBe(7);
+    expect(monthsToGoal(0.3, 0.1)).toBe(3);
+    expect(monthsToGoal(600, 0)).toBeNull();
+  });
+});
+
+describe("equivalences", () => {
+  it("counts meals", () => expect(mealsPerWeek(36.92)).toBe(10));
+});
+
+describe("share link", () => {
+  it("round-trips amounts and split", () => {
+    const s = { budget: "900", savings: "100,50", rent: "", shares: { bouffe: 50 } };
+    const hash = encodeShare(s);
+    expect(hash).toBe("b=900&s=100.5&p=50.12.15.8.8.9.8");
+    expect(decodeShare(`#${hash}`)).toEqual({ budget: "900", savings: "100,5", rent: "", shares: { bouffe: 50, transport: 12, sorties: 15, abonnements: 8, hygiene: 8, shopping: 9, imprevus: 8 } });
+  });
+  it("rejects tampered links", () => {
+    expect(decodeShare("#b=abc")).toBeNull();
+    expect(decodeShare("#p=1.2.3")).toBeNull();
+    expect(decodeShare("#p=999.0.0.0.0.0.0")).toEqual({ budget: "", savings: "", rent: "", shares: { bouffe: 100, transport: 0, sorties: 0, abonnements: 0, hygiene: 0, shopping: 0, imprevus: 0 } });
+    expect(decodeShare("#x=1")).toBeNull();
+    expect(decodeShare("")).toBeNull();
   });
 });

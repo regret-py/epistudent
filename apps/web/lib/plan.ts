@@ -121,3 +121,129 @@ export function planToText(input: PlanInput, plan: Extract<Plan, { ok: true }>):
   ];
   return lines.join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Profiles: ready-made splits for common student situations (each sums to 100)
+// ---------------------------------------------------------------------------
+export type Profile = { key: string; label: string; hint: string; shares: Record<string, number> };
+
+export const PROFILES: readonly Profile[] = [
+  { key: "equilibre", label: "équilibré", hint: "la répartition conseillée", shares: {} },
+  {
+    key: "parents",
+    label: "chez les parents",
+    hint: "moins de courses, plus de sorties",
+    shares: { bouffe: 25, transport: 15, sorties: 25, abonnements: 10, hygiene: 5, shopping: 12, imprevus: 8 },
+  },
+  {
+    key: "coloc",
+    label: "coloc / studio",
+    hint: "tu fais tes courses toi-même",
+    shares: { bouffe: 45, transport: 10, sorties: 12, abonnements: 8, hygiene: 8, shopping: 7, imprevus: 10 },
+  },
+  {
+    key: "serre",
+    label: "budget serré",
+    hint: "l'essentiel d'abord",
+    shares: { bouffe: 55, transport: 12, sorties: 5, abonnements: 6, hygiene: 10, shopping: 2, imprevus: 10 },
+  },
+];
+
+/** Which profile the current shares correspond to, if any. */
+export function matchProfile(shares: Record<string, number>): string | null {
+  const effective = withShares(shares);
+  for (const p of PROFILES) {
+    const target = withShares(p.shares);
+    if (effective.every((c, i) => c.share === target[i]!.share)) return p.key;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Spending tracker (current month only)
+// ---------------------------------------------------------------------------
+export type Tracker = { month: string; spent: Record<string, number> };
+
+export function monthKey(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Validates stored tracker data; a past month starts fresh. */
+export function cleanTracker(raw: unknown, now: Date = new Date()): Tracker {
+  const month = monthKey(now);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { month, spent: {} };
+  const r = raw as Record<string, unknown>;
+  if (r.month !== month || !r.spent || typeof r.spent !== "object") return { month, spent: {} };
+  const src = r.spent as Record<string, unknown>;
+  const spent: Record<string, number> = {};
+  for (const c of CATEGORIES) {
+    const v = Object.prototype.hasOwnProperty.call(src, c.key) ? src[c.key] : undefined;
+    if (typeof v === "number" && Number.isFinite(v) && v > 0 && v <= MAX_EUROS) spent[c.key] = Math.round(v * 100) / 100;
+  }
+  return { month, spent };
+}
+
+/** Days left in the month, today included. */
+export function daysLeftInMonth(now: Date = new Date()): number {
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return last - now.getDate() + 1;
+}
+
+// ---------------------------------------------------------------------------
+// Savings goal
+// ---------------------------------------------------------------------------
+/** Months needed to save `target` at `perMonth`; null when it can't be reached. */
+export function monthsToGoal(target: number, perMonth: number): number | null {
+  if (!(target > 0) || !(perMonth > 0)) return null;
+  return Math.ceil(Math.round(target * 100) / Math.round(perMonth * 100));
+}
+
+export function goalDate(months: number, now: Date = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth() + months, 1);
+  return new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
+}
+
+// ---------------------------------------------------------------------------
+// Fun equivalences
+// ---------------------------------------------------------------------------
+export const MEAL_PRICE = 3.5;
+export function mealsPerWeek(weekFood: number): number {
+  return Math.floor(weekFood / MEAL_PRICE);
+}
+
+// ---------------------------------------------------------------------------
+// Share link: amounts and split in the URL fragment (never sent to a server)
+// ---------------------------------------------------------------------------
+export type Shared = { budget: string; savings: string; rent: string; shares: Record<string, number> };
+
+export function encodeShare(s: Shared): string {
+  const p = new URLSearchParams();
+  for (const k of ["budget", "savings", "rent"] as const) {
+    const v = parseEuros(s[k]);
+    if (v) p.set(k[0]!, String(v));
+  }
+  if (Object.keys(s.shares).length) p.set("p", withShares(s.shares).map((c) => c.share).join("."));
+  return p.toString();
+}
+
+export function decodeShare(hash: string): Shared | null {
+  const p = new URLSearchParams(hash.replace(/^#/, "").slice(0, 300));
+  const out: Shared = { budget: "", savings: "", rent: "", shares: {} };
+  let any = false;
+  for (const [key, field] of [["b", "budget"], ["s", "savings"], ["r", "rent"]] as const) {
+    const raw = p.get(key);
+    if (raw === null) continue;
+    const v = parseEuros(raw);
+    if (v === null) return null;
+    out[field] = String(v).replace(".", ",");
+    any = true;
+  }
+  const shares = p.get("p");
+  if (shares !== null) {
+    const parts = shares.split(".");
+    if (parts.length !== CATEGORIES.length || !parts.every((x) => /^\d{1,3}$/.test(x))) return null;
+    out.shares = cleanShares(Object.fromEntries(CATEGORIES.map((c, i) => [c.key, Number(parts[i])])));
+    any = true;
+  }
+  return any ? out : null;
+}

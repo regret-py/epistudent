@@ -165,3 +165,25 @@
     line-height: 1;
   }
 }
+
+/* Printing (or "save as PDF"): just the plan, in ink on paper. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  :root,
+  .dark {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --ink: 0 0% 0%;
+    --paper: 0 0% 100%;
+    --muted-foreground: 0 0% 30%;
+  }
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  [data-testid="lines"] li {
+    break-inside: avoid;
+  }
+}

@@ -6,7 +6,25 @@ import { BoxLogo } from "@/components/box-logo";
 import { MoneyInput } from "@/components/money-input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Section } from "@/components/ui";
-import { DAYS_PER_MONTH, WEEKS_PER_MONTH, buildPlan, checkAmount, clampShare, euro, planToText, withShares, type PlanLine } from "@/lib/plan";
+import {
+  DAYS_PER_MONTH,
+  MEAL_PRICE,
+  PROFILES,
+  WEEKS_PER_MONTH,
+  buildPlan,
+  checkAmount,
+  clampShare,
+  daysLeftInMonth,
+  encodeShare,
+  euro,
+  goalDate,
+  matchProfile,
+  mealsPerWeek,
+  monthsToGoal,
+  planToText,
+  withShares,
+  type PlanLine,
+} from "@/lib/plan";
 import { useSaved } from "@/lib/use-saved";
 
 const FIELDS = [
@@ -29,6 +47,10 @@ const FAQ = [
     a: "Un budget mensuel est difficile à suivre. Savoir que tu as 37 € par semaine pour manger, c'est beaucoup plus concret quand tu fais tes courses.",
   },
   {
+    q: "Comment suivre mes dépenses dans le mois ?",
+    a: "Clique sur « suivre mes dépenses » et note chaque achat dans son poste. Le site te dit ce qu'il te reste, et combien tu peux dépenser par jour jusqu'à la fin du mois. Le suivi repart à zéro au début de chaque mois.",
+  },
+  {
     q: "Mes chiffres sont-ils envoyés quelque part ?",
     a: "Non. Il n'y a ni compte ni serveur : le calcul se fait dans ton navigateur et tes montants restent sur ton appareil.",
   },
@@ -37,7 +59,9 @@ const FAQ = [
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 export default function PlanPage() {
-  const { saved, setSaved, loaded, reset } = useSaved();
+  const { saved, setSaved, loaded, reset, fromLink } = useSaved();
+  const [trackingOpen, setTrackingOpen] = useState<boolean | null>(null);
+  const [linkState, setLinkState] = useState<"ok" | "error" | null>(null);
   const [customizing, setCustomizing] = useState(false);
   const [copied, setCopied] = useState<"ok" | "error" | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -56,7 +80,10 @@ export default function PlanPage() {
   // a wrong field must never be silently counted as 0
   const showPlan = plan.ok && invalid.length === 0;
   const editable = invalid.length === 0 && (plan.ok || noShare);
-  const hasInput = Boolean(saved.budget || saved.savings || saved.rent || customized);
+  const hasSpent = Object.keys(saved.tracker.spent).length > 0;
+  const tracking = trackingOpen ?? hasSpent;
+  const hasInput = Boolean(saved.budget || saved.savings || saved.rent || customized || hasSpent || saved.goal.target);
+  const profile = matchProfile(saved.shares);
 
   // one short, debounced announcement instead of a live region over the whole result
   useEffect(() => {
@@ -82,6 +109,35 @@ export default function PlanPage() {
   const set = (field: "budget" | "savings" | "rent") => (v: string) => setSaved((s) => ({ ...s, [field]: v }));
   const setShare = (key: string, v: number) => setSaved((s) => ({ ...s, shares: { ...s.shares, [key]: clampShare(v) } }));
   const resetShares = () => setSaved((s) => ({ ...s, shares: {} }));
+  const spend = (key: string, amount: number) =>
+    setSaved((s) => {
+      const next = Math.round(((s.tracker.spent[key] ?? 0) + amount) * 100) / 100;
+      const spent = { ...s.tracker.spent };
+      if (next > 0) spent[key] = next;
+      else delete spent[key];
+      return { ...s, tracker: { ...s.tracker, spent } };
+    });
+  const clearSpent = () => {
+    setTrackingOpen(true); // stay in tracking mode after clearing
+    setSaved((s) => ({ ...s, tracker: { ...s.tracker, spent: {} } }));
+  };
+
+  async function shareLink() {
+    const url = `${window.location.origin}/#${encodeShare(saved)}`;
+    try {
+      if (typeof navigator.share === "function" && window.matchMedia("(pointer: coarse)").matches) {
+        await navigator.share({ title: "Mon budget étudiant", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+      setLinkState("ok");
+      setAnnounce("Lien copié.");
+    } catch (err) {
+      // closing the share sheet is not an error
+      if (!(err instanceof DOMException && err.name === "AbortError")) setLinkState("error");
+    }
+    setTimeout(() => setLinkState(null), 2500);
+  }
 
   async function copy() {
     if (!plan.ok) return;
@@ -113,7 +169,9 @@ export default function PlanPage() {
           <a href="/" aria-label="epistudent, accueil" className="py-1">
             <BoxLogo className="text-[26px] sm:text-[32px]" />
           </a>
-          <ThemeToggle />
+          <span className="no-print">
+            <ThemeToggle />
+          </span>
         </div>
       </header>
 
@@ -133,6 +191,30 @@ export default function PlanPage() {
           <MoneyInput id="rent" label="loyer & fixes" hint="optionnel : loyer, charges, assurance" placeholder="0" value={saved.rent} onChange={set("rent")} />
         </div>
 
+        {loaded && editable && (
+          <div className="no-print flex flex-wrap items-center gap-x-3 gap-y-2 border-2 border-t-0 border-ink px-4 py-3" role="group" aria-label="ta situation">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em]">ta situation</span>
+            {PROFILES.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                aria-pressed={profile === p.key}
+                title={p.hint}
+                onClick={() => setSaved((s) => ({ ...s, shares: { ...p.shares } }))}
+                className={cn("min-h-9 border border-ink px-3 text-[11px] font-bold lowercase", profile === p.key ? "bg-ink text-paper" : "invert-hover")}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {fromLink && (
+          <p className="no-print border-2 border-t-0 border-ink px-4 py-2 text-[12px]" data-testid="from-link">
+            Budget chargé depuis un lien partagé. Modifie-le librement : il est maintenant enregistré sur ton appareil.
+          </p>
+        )}
+
         <p className="sr-only" role="status" aria-atomic="true">
           {announce}
         </p>
@@ -141,7 +223,16 @@ export default function PlanPage() {
           {!loaded ? null : invalid.length > 0 ? (
             <Notice testId="invalid">Corrige {invalid.length > 1 ? "les montants" : "le montant"} : {invalid.map((f) => f.label).join(", ")}.</Notice>
           ) : showPlan && plan.ok ? (
-            <Result lines={plan.lines} spendable={plan.spendable} savings={input.savings} savingsRate={plan.savingsRate} rent={input.rent} />
+            <Result
+              lines={plan.lines}
+              spendable={plan.spendable}
+              savings={input.savings}
+              savingsRate={plan.savingsRate}
+              rent={input.rent}
+              tracking={tracking}
+              spent={saved.tracker.spent}
+              onSpend={spend}
+            />
           ) : !plan.ok && plan.reason === "too-much" ? (
             <Notice testId="too-much" ink>
               Ton épargne et tes dépenses fixes dépassent ton budget de {euro(plan.missing)}. Baisse l&apos;épargne ou vérifie tes montants.
@@ -163,10 +254,25 @@ export default function PlanPage() {
         </div>
 
         {loaded && (editable || hasInput) && (
-          <div className="mt-6 flex flex-wrap items-center gap-2">
+          <div className="no-print mt-6 flex flex-wrap items-center gap-2">
             {showPlan && (
               <Button size="sm" onClick={() => void copy()} data-testid="copy">
                 {copied === "ok" ? "copié ✓" : copied === "error" ? "copie impossible" : "copier mon budget"}
+              </Button>
+            )}
+            {showPlan && (
+              <Button size="sm" variant={tracking ? "default" : "outline"} aria-pressed={tracking} onClick={() => setTrackingOpen(!tracking)} data-testid="toggle-tracking">
+                {tracking ? "masquer le suivi" : "suivre mes dépenses"}
+              </Button>
+            )}
+            {showPlan && (
+              <Button size="sm" variant="outline" onClick={() => void shareLink()} data-testid="share-link">
+                {linkState === "ok" ? "lien copié ✓" : linkState === "error" ? "partage impossible" : "lien de partage"}
+              </Button>
+            )}
+            {showPlan && (
+              <Button size="sm" variant="outline" onClick={() => window.print()}>
+                imprimer
               </Button>
             )}
             {editable && !noShare && (
@@ -204,7 +310,22 @@ export default function PlanPage() {
           </Section>
         )}
 
-        <Section title="questions" id="faq" className="mt-20">
+        {showPlan && tracking && hasSpent && (
+          <p className="no-print mt-3 text-[11px] text-muted-foreground">
+            Le suivi repart à zéro chaque mois.{" "}
+            <button type="button" className="link underline" onClick={clearSpent}>
+              remettre les dépenses à zéro maintenant
+            </button>
+          </p>
+        )}
+
+        {loaded && (
+          <Section title="objectif d'épargne" id="objectif" className="mt-16">
+            <Goal goal={saved.goal} perMonth={invalid.length ? 0 : input.savings} onChange={(goal) => setSaved((s) => ({ ...s, goal }))} />
+          </Section>
+        )}
+
+        <Section title="questions" id="faq" className="no-print mt-20">
           <dl className="divide-y divide-border border-b border-border">
             {FAQ.map((f) => (
               <div key={f.q} className="py-4">
@@ -216,7 +337,7 @@ export default function PlanPage() {
         </Section>
       </main>
 
-      <footer className="border-t-2 border-ink">
+      <footer className="no-print border-t-2 border-ink">
         <div className="container flex flex-wrap items-center justify-between gap-3 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-[11px] lowercase">
           <span>
             <strong className="font-display font-black italic">epistudent</strong> — fait par des étudiants, pour les étudiants.
@@ -247,7 +368,21 @@ function Amount({ value, testId, prefix = "" }: { value: number; testId?: string
   );
 }
 
-function Result({ lines, spendable, savings, savingsRate, rent }: { lines: PlanLine[]; spendable: number; savings: number; savingsRate: number; rent: number }) {
+type ResultProps = {
+  lines: PlanLine[];
+  spendable: number;
+  savings: number;
+  savingsRate: number;
+  rent: number;
+  tracking: boolean;
+  spent: Record<string, number>;
+  onSpend: (key: string, amount: number) => void;
+};
+
+function Result({ lines, spendable, savings, savingsRate, rent, tracking, spent, onSpend }: ResultProps) {
+  const totalSpent = Math.round(Object.values(spent).reduce((a, b) => a + b, 0) * 100) / 100;
+  const left = Math.round((spendable - totalSpent) * 100) / 100;
+  const days = daysLeftInMonth();
   return (
     <div className="border-2 border-t-0 border-ink">
       <div className="grid grid-cols-2 gap-px bg-ink lg:grid-cols-3">
@@ -276,6 +411,33 @@ function Result({ lines, spendable, savings, savingsRate, rent }: { lines: PlanL
         </div>
       </div>
 
+      {tracking && (
+        <div className="grid grid-cols-2 gap-px border-t-2 border-ink bg-ink lg:grid-cols-3" data-testid="tracker-summary">
+          <div className="cell min-w-0 bg-background p-4 sm:p-5">
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em]">dépensé ce mois</div>
+            <div className="amount-lg mt-2">
+              <Amount value={totalSpent} testId="spent-total" />
+            </div>
+          </div>
+          <div className={cn("cell relative min-w-0 overflow-hidden p-4 sm:p-5", left < 0 ? "bg-ink text-paper" : "bg-background")}>
+            {left < 0 && <div aria-hidden className="hatch-paper absolute inset-0" />}
+            <div className="relative text-[10px] font-bold uppercase tracking-[0.2em]">{left < 0 ? "dépassé de" : "il reste"}</div>
+            <div className="amount-lg relative mt-2">
+              <Amount value={Math.abs(left)} testId="left-total" />
+            </div>
+          </div>
+          <div className="cell col-span-2 min-w-0 bg-background p-4 sm:p-5 lg:col-span-1">
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em]">par jour jusqu&apos;à la fin du mois</div>
+            <div className="amount-lg mt-2">
+              <Amount value={Math.max(0, Math.round((left / days) * 100) / 100)} testId="left-per-day" />
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              {days} jour{days > 1 ? "s" : ""} restant{days > 1 ? "s" : ""}, aujourd&apos;hui compris
+            </div>
+          </div>
+        </div>
+      )}
+
       <ul className="grid grid-cols-2 gap-px border-t-2 border-ink bg-ink lg:grid-cols-4" data-testid="lines">
         {lines.map((l, i) => (
           <li key={l.key} className={cn("cell flex min-h-[11rem] min-w-0 flex-col justify-between gap-3 p-4 sm:p-5", i === 0 ? "bg-ink text-paper" : "bg-background")} data-testid={`line-${l.key}`}>
@@ -290,7 +452,12 @@ function Result({ lines, spendable, savings, savingsRate, rent }: { lines: PlanL
                 </span>{" "}
                 · <span className="whitespace-nowrap">{euro(l.day)} / jour</span>
               </div>
-              <ShareBar percent={l.percent} />
+              {l.key === "bouffe" && l.week >= MEAL_PRICE && (
+                <div className="mt-1 text-[11px] opacity-80" data-testid="meals">
+                  ≈ {mealsPerWeek(l.week)} repas à {euro(MEAL_PRICE)} par semaine
+                </div>
+              )}
+              {tracking ? <Spending line={l} spent={spent[l.key] ?? 0} onSpend={(v) => onSpend(l.key, v)} /> : <ShareBar percent={l.percent} />}
               <div className="mt-1.5 text-[11px] opacity-60">{l.hint}</div>
             </div>
           </li>
@@ -364,6 +531,124 @@ function ShareInput({ label, value, amount, onChange }: { label: string; value: 
         <span className="ml-1.5 text-[12px]" aria-hidden>
           %
         </span>
+      </div>
+    </div>
+  );
+}
+
+/** Per-category spending: how much is gone, what's left, and a quick "+ €" field. */
+function Spending({ line, spent, onSpend }: { line: PlanLine; spent: number; onSpend: (v: number) => void }) {
+  const [text, setText] = useState("");
+  const [error, setError] = useState(false);
+  const left = Math.round((line.month - spent) * 100) / 100;
+  const ratio = line.month > 0 ? Math.min(1, spent / line.month) : spent > 0 ? 1 : 0;
+  const id = `spend-${line.key}`;
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const { value, error: err } = checkAmount(text);
+    if (err || !value) {
+      setError(true);
+      return;
+    }
+    setError(false);
+    setText("");
+    onSpend(value);
+  }
+  return (
+    <div className="mt-2" data-testid={`spending-${line.key}`}>
+      <svg viewBox="0 0 100 4" preserveAspectRatio="none" className="h-1.5 w-full border border-current" aria-hidden>
+        <rect x="0" y="0" width={ratio * 100} height="4" className="fill-current" />
+      </svg>
+      <div className="tabular mt-1 flex flex-wrap justify-between gap-x-2 text-[11px]">
+        <span>dépensé {euro(spent)}</span>
+        <strong data-testid={`left-${line.key}`}>{left < 0 ? `dépassé de ${euro(-left)}` : `reste ${euro(left)}`}</strong>
+      </div>
+      <form onSubmit={submit} className="no-print mt-2 flex" noValidate>
+        <label htmlFor={id} className="sr-only">
+          dépense en {line.label}
+        </label>
+        <input
+          id={id}
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder="+ €"
+          maxLength={12}
+          value={text}
+          aria-invalid={error}
+          onChange={(e) => {
+            setText(e.target.value);
+            setError(false);
+          }}
+          className={cn("tabular h-9 w-full min-w-0 border border-current bg-transparent px-2 text-[13px] outline-none placeholder:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-current", error && "border-2")}
+        />
+        <button type="submit" aria-label={`ajouter la dépense en ${line.label}`} className="-ml-px h-9 shrink-0 border border-current px-3 text-[11px] font-bold uppercase">
+          ok
+        </button>
+      </form>
+      {error && <p className="mt-1 text-[11px] font-bold">montant invalide</p>}
+    </div>
+  );
+}
+
+/** "I want 600 € for a laptop": how many months at the current savings rate. */
+function Goal({ goal, perMonth, onChange }: { goal: { label: string; target: string }; perMonth: number; onChange: (g: { label: string; target: string }) => void }) {
+  const { value: target, error } = checkAmount(goal.target);
+  const months = target ? monthsToGoal(target, perMonth) : null;
+  return (
+    <div className="grid gap-px border-2 border-ink bg-ink sm:grid-cols-[1.4fr_1fr_1.4fr]">
+      <div className="bg-background p-4 sm:p-5">
+        <label htmlFor="goal-label" className="text-[10px] font-bold uppercase tracking-[0.2em]">
+          pour quoi ?
+        </label>
+        <input
+          id="goal-label"
+          className="display mt-2 w-full min-w-0 border-b-2 border-ink bg-transparent pb-1 text-[24px] outline-none placeholder:text-muted-foreground focus-visible:border-b-[5px]"
+          placeholder="un ordi, un voyage…"
+          maxLength={40}
+          autoComplete="off"
+          value={goal.label}
+          onChange={(e) => onChange({ ...goal, label: e.target.value })}
+        />
+      </div>
+      <div className="bg-background p-4 sm:p-5">
+        <label htmlFor="goal-target" className="text-[10px] font-bold uppercase tracking-[0.2em]">
+          combien ?
+        </label>
+        <div className="mt-2 flex items-baseline gap-2 border-b-2 border-ink focus-within:border-b-[5px]">
+          <input
+            id="goal-target"
+            className="display tabular w-full min-w-0 bg-transparent pb-1 text-[24px] outline-none placeholder:text-muted-foreground"
+            inputMode="decimal"
+            placeholder="600"
+            maxLength={16}
+            autoComplete="off"
+            value={goal.target}
+            aria-invalid={error !== null}
+            onChange={(e) => onChange({ ...goal, target: e.target.value })}
+          />
+          <span className="display text-[20px]" aria-hidden>
+            €
+          </span>
+        </div>
+      </div>
+      <div className="cell flex flex-col justify-center bg-ink p-4 text-paper sm:p-5" data-testid="goal-result">
+        {error ? (
+          <p className="font-bold">Montant invalide.</p>
+        ) : !target ? (
+          <p className="text-[12px] opacity-80">Entre un montant pour savoir en combien de temps tu l&apos;atteins avec ton épargne.</p>
+        ) : months === null ? (
+          <p className="text-[12px]">Ajoute une épargne mensuelle plus haut pour voir quand tu y arrives.</p>
+        ) : (
+          <>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em]">{goal.label.trim() || "objectif"}</div>
+            <div className="display mt-2 text-[34px] leading-none" data-testid="goal-months">
+              {months} mois
+            </div>
+            <div className="mt-1 text-[11px] opacity-80">
+              en mettant {euro(perMonth)} de côté par mois · prêt en {goalDate(months)}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,41 +1,71 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { cleanShares } from "./plan";
+import { cleanShares, cleanTracker, decodeShare, type Tracker } from "./plan";
 
 const KEY = "epistudent-plan";
 
-export type Saved = { budget: string; savings: string; rent: string; shares: Record<string, number> };
-const EMPTY: Saved = { budget: "", savings: "", rent: "", shares: {} };
+export type Saved = {
+  budget: string;
+  savings: string;
+  rent: string;
+  shares: Record<string, number>;
+  tracker: Tracker;
+  goal: { label: string; target: string };
+};
 
-function clip(v: unknown): string {
-  return typeof v === "string" ? v.slice(0, 20) : "";
+export const emptySaved = (): Saved => ({ budget: "", savings: "", rent: "", shares: {}, tracker: cleanTracker(null), goal: { label: "", target: "" } });
+
+function clip(v: unknown, max = 20): string {
+  return typeof v === "string" ? v.slice(0, max) : "";
 }
 
 /** Inputs remembered in this browser only (never sent anywhere). */
 export function useSaved() {
-  const [saved, setSaved] = useState<Saved>(EMPTY);
+  const [saved, setSaved] = useState<Saved>(emptySaved);
   const [loaded, setLoaded] = useState(false);
+  const [fromLink, setFromLink] = useState(false);
   const first = useRef(true);
 
   useEffect(() => {
-    let next = EMPTY;
+    let next = emptySaved();
+    let changed = false;
     try {
       const raw: unknown = JSON.parse(localStorage.getItem(KEY) ?? "null");
       if (raw && typeof raw === "object" && !Array.isArray(raw)) {
         const r = raw as Record<string, unknown>;
-        next = { budget: clip(r.budget), savings: clip(r.savings), rent: clip(r.rent), shares: cleanShares(r.shares) };
+        const g = (r.goal && typeof r.goal === "object" ? r.goal : {}) as Record<string, unknown>;
+        next = {
+          budget: clip(r.budget),
+          savings: clip(r.savings),
+          rent: clip(r.rent),
+          shares: cleanShares(r.shares),
+          tracker: cleanTracker(r.tracker),
+          goal: { label: clip(g.label, 40), target: clip(g.target) },
+        };
+        changed = true;
       }
     } catch {
       // corrupted or blocked storage: start fresh
     }
+    // a shared link (#b=900&s=100…) wins over what was stored, then the fragment is removed
+    const shared = decodeShare(window.location.hash);
+    if (shared) {
+      next = { ...next, ...shared };
+      changed = true;
+      setFromLink(true);
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
     // the static HTML is usable before the JS loads: keep anything typed in the meantime
     for (const field of ["budget", "savings", "rent"] as const) {
       const typed = (document.getElementById(field) as HTMLInputElement | null)?.value ?? "";
-      if (typed.trim()) next = { ...next, [field]: clip(typed) };
+      if (typed.trim()) {
+        next = { ...next, [field]: clip(typed) };
+        changed = true;
+      }
     }
-    if (next !== EMPTY) {
-      first.current = false; // a merge of typed values must be saved too
+    if (changed) {
+      first.current = false;
       setSaved(next);
     }
     setLoaded(true);
@@ -55,7 +85,7 @@ export function useSaved() {
   }, [saved, loaded]);
 
   const reset = () => {
-    setSaved(EMPTY);
+    setSaved(emptySaved());
     try {
       localStorage.removeItem(KEY);
     } catch {
@@ -63,5 +93,5 @@ export function useSaved() {
     }
   };
 
-  return { saved, setSaved, loaded, reset };
+  return { saved, setSaved, loaded, reset, fromLink };
 }
