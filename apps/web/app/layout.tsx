@@ -7,16 +7,16 @@ import "./globals.css";
 const display = Jost({ subsets: ["latin"], weight: ["800", "900"], style: ["italic", "normal"], variable: "--font-display" });
 
 const description =
-  "Compteur de budget mensuel pour étudiants : revenus, dépenses, reste à vivre par jour, épargne. Gratuit, sans compte, données chiffrées sur ton appareil.";
+  "Calculateur de budget étudiant : entre ton budget du mois et l'épargne voulue, on te dit combien dépenser pour la bouffe, les sorties, le transport… par mois, semaine et jour. Gratuit, sans compte.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://epistudent.fr"),
-  title: { default: "epistudent — budget du mois", template: "%s — epistudent" },
+  title: { default: "Calculateur budget étudiant : combien pour la bouffe ? — epistudent", template: "%s — epistudent" },
   description,
   referrer: "no-referrer",
   formatDetection: { telephone: false, email: false, address: false },
   robots: { index: true, follow: true },
-  openGraph: { title: "epistudent — budget du mois", description, url: "https://epistudent.fr", siteName: "epistudent", locale: "fr_FR", type: "website" },
+  openGraph: { title: "epistudent — calculateur de budget étudiant", description, url: "https://epistudent.fr", siteName: "epistudent", locale: "fr_FR", type: "website" },
 };
 
 export const viewport: Viewport = {

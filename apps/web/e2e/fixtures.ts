@@ -22,12 +22,3 @@ export const test = base.extend<{ guarded: Page }>({
 });
 
 export { expect };
-
-export async function addLine(page: Page, opts: { quick?: string; label?: string; amount: string; kind?: "revenu" | "dépense"; monthly?: boolean }) {
-  if (opts.quick) await page.getByRole("button", { name: `+ ${opts.quick}` }).click();
-  if (opts.kind) await page.getByRole("button", { name: opts.kind, exact: true }).click();
-  if (opts.label) await page.getByLabel("Nom").fill(opts.label);
-  await page.getByLabel("Montant (€)").fill(opts.amount);
-  if (opts.monthly) await page.getByLabel(/Tous les mois/).check();
-  await page.getByRole("button", { name: "ajouter", exact: true }).click();
-}
