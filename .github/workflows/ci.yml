@@ -34,7 +34,7 @@ jobs:
       - run: pnpm build
 
   e2e:
-    name: E2E (Playwright + local Supabase)
+    name: E2E (Playwright)
     runs-on: ubuntu-latest
     needs: checks
     steps:
@@ -45,27 +45,6 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-
-      - name: Start Supabase (applies migrations + seed)
-        run: |
-          cat > supabase/.env <<'ENV'
-          SUPABASE_AUTH_EXTERNAL_AZURE_CLIENT_ID=ci-placeholder
-          SUPABASE_AUTH_EXTERNAL_AZURE_SECRET=ci-placeholder
-          SUPABASE_AUTH_EXTERNAL_AZURE_URL=https://login.microsoftonline.com/common
-          ENV
-          pnpm exec supabase start -x vector,logflare,edge-runtime,imgproxy,supavisor,storage-api,studio,postgres-meta,mailpit
-          pnpm exec supabase status -o env > /tmp/sb.env
-          source /tmp/sb.env
-          {
-            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
-          } >> "$GITHUB_ENV"
-
-      - name: Schema types are up to date
-        run: |
-          pnpm db:types
-          git diff --exit-code packages/db/src/database.types.ts
 
       - run: pnpm --filter @studybuddy/web build   # static export → apps/web/out
       - run: pnpm --filter @studybuddy/web exec playwright install --with-deps chromium

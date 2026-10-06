@@ -27,7 +27,7 @@ export default defineConfig({
     : {
         // serves the static export (`next build` → out/), like GitHub Pages
         command: `node e2e/static-server.mjs out ${PORT}`,
-        url: `${baseURL}/login/`,
+        url: `${baseURL}/`,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
       },

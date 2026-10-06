@@ -1,6 +1,5 @@
 /**
- * Static export: the site is hosted on GitHub Pages (epistudent.fr). Every data access goes
- * from the browser to Supabase, secured by RLS and security-definer RPCs.
+ * Static export hosted on GitHub Pages (epistudent.fr). No backend: data lives in localStorage.
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
@@ -8,7 +7,7 @@ const nextConfig = {
   trailingSlash: true,
   images: { unoptimized: true },
   reactStrictMode: true,
-  transpilePackages: ["@studybuddy/ui", "@studybuddy/db"],
+  transpilePackages: ["@studybuddy/ui"],
 };
 
 export default nextConfig;
