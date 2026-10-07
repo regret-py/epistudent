@@ -60,6 +60,9 @@ const FAQ = [
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
+/** Stripe payment link for donations (opens Stripe's own page; no payment data touches this site). */
+const DONATE_URL = "https://buy.stripe.com/dRm7sNajH9ux3lf9zRcMM05";
+
 export default function PlanPage() {
   const { saved, setSaved, loaded, reset, forget, fromLink } = useSaved();
   const account = useAccount({ saved, setSaved, loaded, forget });
@@ -380,6 +383,29 @@ export default function PlanPage() {
           </Section>
         )}
 
+        <Section title="soutenir epistudent" id="don" className="no-print mt-16">
+          <div className="grid gap-px border-2 border-ink bg-ink sm:grid-cols-[1.5fr_1fr]">
+            <div className="bg-background p-4 sm:p-5">
+              <p className="display text-[24px] leading-tight">gratuit, sans pub, sans traceur.</p>
+              <p className="mt-2 text-muted-foreground">
+                epistudent est fait par un étudiant, sur son temps libre. Si le site t&apos;aide à tenir ton budget, un petit don aide à le faire vivre.
+              </p>
+            </div>
+            <div className="flex flex-col justify-center gap-2 bg-ink p-4 text-paper sm:p-5">
+              <a
+                href={DONATE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-12 items-center justify-center border-2 border-paper bg-paper px-5 text-[12px] font-bold uppercase tracking-[0.15em] text-ink transition-colors hover:bg-ink hover:text-paper"
+                data-testid="donate"
+              >
+                faire un don ↗
+              </a>
+              <span className="text-center text-[10px] opacity-70">paiement sécurisé par Stripe</span>
+            </div>
+          </div>
+        </Section>
+
         <Section title="ton compte" id="compte" className="no-print mt-16">
           <AccountPanel account={account} />
         </Section>
@@ -403,7 +429,12 @@ export default function PlanPage() {
           <span>
             <strong className="font-display font-black italic">epistudent</strong> — fait par des étudiants, pour les étudiants.
           </span>
-          <span className="text-muted-foreground">compte optionnel · aucune pub · aucun traceur</span>
+          <span className="flex flex-wrap items-center gap-3">
+            <a href={DONATE_URL} target="_blank" rel="noopener noreferrer" className="link font-bold" data-testid="donate-footer">
+              faire un don ↗
+            </a>
+            <span className="text-muted-foreground">compte optionnel · aucune pub · aucun traceur</span>
+          </span>
         </div>
       </footer>
     </div>

@@ -96,3 +96,12 @@ test("print hides the controls", async ({ guarded: page }) => {
   await expect(page.getByTestId("spendable")).toBeVisible();
   await expect(page.locator("#faq")).toBeHidden();
 });
+
+test("donate buttons open the Stripe payment link in a new tab", async ({ guarded: page }) => {
+  for (const id of ["donate", "donate-footer"]) {
+    const link = page.getByTestId(id);
+    await expect(link).toHaveAttribute("href", "https://buy.stripe.com/dRm7sNajH9ux3lf9zRcMM05");
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", /noopener/);
+  }
+});
