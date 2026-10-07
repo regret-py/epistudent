@@ -26,6 +26,7 @@ import {
   type PlanLine,
 } from "@/lib/plan";
 import { BADGES, dayKey, formatBadgeDate, newlyEarned, type Badge } from "@/lib/badges";
+import { shake } from "@/lib/motion";
 import { useAccount } from "@/lib/use-account";
 import { useSaved } from "@/lib/use-saved";
 
@@ -74,6 +75,8 @@ export default function PlanPage() {
   const [copied, setCopied] = useState<"ok" | "error" | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [announce, setAnnounce] = useState("");
+  // the result animates in the first time only: typing through an invalid value must not replay it
+  const [resultShown, setResultShown] = useState(false);
 
   const checks = useMemo(
     () => ({ budget: checkAmount(saved.budget), savings: checkAmount(saved.savings), rent: checkAmount(saved.rent) }),
@@ -92,6 +95,10 @@ export default function PlanPage() {
   const tracking = trackingOpen ?? hasSpent;
   const hasInput = Boolean(saved.budget || saved.savings || saved.rent || customized || hasSpent || saved.goal.target);
   const profile = matchProfile(saved.shares);
+
+  useEffect(() => {
+    if (showPlan) setResultShown(true);
+  }, [showPlan]);
 
   // one short, debounced announcement instead of a live region over the whole result
   useEffect(() => {
@@ -220,15 +227,18 @@ export default function PlanPage() {
 
       <main className="container flex-1 pt-10">
         <h1 className="display text-[15vw] sm:text-[88px]">
-          ton budget
-          <br />
-          du mois.
+          <span className="line">
+            <span>ton budget</span>
+          </span>{" "}
+          <span className="line">
+            <span>du mois.</span>
+          </span>
         </h1>
-        <p className="mt-4 max-w-xl text-[15px] leading-relaxed">
+        <p className="rise rise-1 mt-4 max-w-xl text-[15px] leading-relaxed">
           Mets ton budget et ce que tu veux mettre de côté. On te dit combien tu peux dépenser pour la bouffe, les sorties, le transport… par mois, par semaine et par jour.
         </p>
 
-        <div className="mt-10 grid gap-px border-2 border-ink bg-ink sm:grid-cols-3">
+        <div className="rise rise-2 mt-10 grid gap-px border-2 border-ink bg-ink sm:grid-cols-3">
           <MoneyInput id="budget" label="budget du mois" hint="tout ce qui rentre : bourse, APL, job, parents" placeholder="900" value={saved.budget} onChange={set("budget")} />
           <MoneyInput id="savings" label="épargne voulue" hint="ce que tu veux mettre de côté" placeholder="100" value={saved.savings} onChange={set("savings")} />
           <MoneyInput id="rent" label="loyer & fixes" hint="optionnel : loyer, charges, assurance" placeholder="0" value={saved.rent} onChange={set("rent")} />
@@ -253,7 +263,7 @@ export default function PlanPage() {
         )}
 
         {account.notice && (
-          <p className="no-print mt-4 flex items-start justify-between gap-3 border-2 border-ink px-4 py-2 text-[12px]" role="status" data-testid="account-notice">
+          <p className="rise no-print mt-4 flex items-start justify-between gap-3 border-2 border-ink px-4 py-2 text-[12px]" role="status" data-testid="account-notice">
             <span>{account.notice}</span>
             <button type="button" className="link shrink-0" aria-label="fermer le message" onClick={() => account.setNotice(null)}>
               ✕
@@ -262,7 +272,7 @@ export default function PlanPage() {
         )}
 
         {fromLink && (
-          <p className="no-print border-2 border-t-0 border-ink px-4 py-2 text-[12px]" data-testid="from-link">
+          <p className="rise no-print border-2 border-t-0 border-ink px-4 py-2 text-[12px]" data-testid="from-link">
             Budget chargé depuis un lien partagé. Modifie-le librement : il est maintenant enregistré sur ton appareil.
           </p>
         )}
@@ -284,6 +294,7 @@ export default function PlanPage() {
               tracking={tracking}
               spent={saved.tracker.spent}
               onSpend={spend}
+              animate={!resultShown}
             />
           ) : !plan.ok && plan.reason === "too-much" ? (
             <Notice testId="too-much" ink>
@@ -341,7 +352,7 @@ export default function PlanPage() {
         )}
 
         {editable && (customizing || noShare) && (
-          <Section title="répartition" id="repartition" aside={customized ? "personnalisée" : "conseillée"} className="mt-8">
+          <Section title="répartition" id="repartition" aside={customized ? "personnalisée" : "conseillée"} className="rise mt-8">
             <p className="mb-4 text-muted-foreground">Le poids de chaque poste, en %. Le total n&apos;a pas besoin de faire 100 : on recalcule les proportions.</p>
             <div className="grid gap-x-8 sm:grid-cols-2" data-testid="shares">
               {categories.map((c) => (
@@ -372,18 +383,18 @@ export default function PlanPage() {
         )}
 
         {loaded && (
-          <Section title="objectif d'épargne" id="objectif" className="mt-16">
+          <Section title="objectif d'épargne" id="objectif" className="reveal mt-16">
             <Goal goal={saved.goal} perMonth={invalid.length ? 0 : input.savings} onChange={(goal) => setSaved((s) => ({ ...s, goal }))} />
           </Section>
         )}
 
         {loaded && (
-          <Section title="tes badges" id="badges" aside={`${Object.keys(saved.badges).length} / ${BADGES.length}`} className="no-print mt-16">
+          <Section title="tes badges" id="badges" aside={`${Object.keys(saved.badges).length} / ${BADGES.length}`} className="reveal no-print mt-16">
             <Badges owned={saved.badges} />
           </Section>
         )}
 
-        <Section title="soutenir epistudent" id="don" className="no-print mt-16">
+        <Section title="soutenir epistudent" id="don" className="reveal no-print mt-16">
           <div className="grid gap-px border-2 border-ink bg-ink sm:grid-cols-[1.5fr_1fr]">
             <div className="bg-background p-4 sm:p-5">
               <p className="display text-[24px] leading-tight">gratuit, sans pub, sans traceur.</p>
@@ -406,11 +417,11 @@ export default function PlanPage() {
           </div>
         </Section>
 
-        <Section title="ton compte" id="compte" className="no-print mt-16">
+        <Section title="ton compte" id="compte" className="reveal no-print mt-16">
           <AccountPanel account={account} />
         </Section>
 
-        <Section title="questions" id="faq" className="no-print mt-20">
+        <Section title="questions" id="faq" className="reveal no-print mt-20">
           <dl className="divide-y divide-border border-b border-border">
             {FAQ.map((f) => (
               <div key={f.q} className="py-4">
@@ -452,9 +463,15 @@ function Notice({ children, ink, testId }: { children: React.ReactNode; ink?: bo
 /** Amount sized from its own cell width (container units) and its length, so it never overflows. */
 function Amount({ value, testId, prefix = "" }: { value: number; testId?: string; prefix?: string }) {
   const text = `${prefix}${euro(value)}`;
+  // a new figure remounts the element (key) so it ticks in; the first render stays still
+  const last = useRef(text);
+  const changed = last.current !== text;
+  useEffect(() => {
+    last.current = text;
+  }, [text]);
   const fit = text.length <= 5 ? "fit-5" : text.length <= 7 ? "fit-7" : text.length <= 9 ? "fit-9" : text.length <= 11 ? "fit-11" : text.length <= 13 ? "fit-13" : "fit-99";
   return (
-    <div className={cn("display tabular fitted whitespace-nowrap", fit)} data-testid={testId}>
+    <div key={text} className={cn("display tabular fitted whitespace-nowrap", fit, changed && "tick")} data-testid={testId}>
       {text}
     </div>
   );
@@ -469,15 +486,19 @@ type ResultProps = {
   tracking: boolean;
   spent: Record<string, number>;
   onSpend: (key: string, amount: number) => void;
+  animate: boolean;
 };
 
-function Result({ lines, spendable, savings, savingsRate, rent, tracking, spent, onSpend }: ResultProps) {
+function Result({ lines, spendable, savings, savingsRate, rent, tracking, spent, onSpend, animate }: ResultProps) {
+  const [enter] = useState(animate); // fixed for the life of this mount
+  const [trackingAtMount] = useState(tracking);
+  const trackerEnter = enter || !trackingAtMount; // the tracker opens with its own motion when toggled on
   const totalSpent = Math.round(Object.values(spent).reduce((a, b) => a + b, 0) * 100) / 100;
   const left = Math.round((spendable - totalSpent) * 100) / 100;
   const days = daysLeftInMonth();
   return (
-    <div className="border-2 border-t-0 border-ink">
-      <div className="grid grid-cols-2 gap-px bg-ink lg:grid-cols-3">
+    <div className={cn("border-2 border-t-0 border-ink", enter && "wipe")}>
+      <div className={cn("grid grid-cols-2 gap-px bg-ink lg:grid-cols-3", enter && "stagger-in")}>
         <div className="cell col-span-2 bg-ink p-4 text-paper sm:p-5 lg:col-span-1">
           <div className="text-[10px] font-bold uppercase tracking-[0.2em]">à dépenser</div>
           <div className="amount-xl mt-2">
@@ -504,7 +525,7 @@ function Result({ lines, spendable, savings, savingsRate, rent, tracking, spent,
       </div>
 
       {tracking && (
-        <div className="grid grid-cols-2 gap-px border-t-2 border-ink bg-ink lg:grid-cols-3" data-testid="tracker-summary">
+        <div className={cn("grid grid-cols-2 gap-px border-t-2 border-ink bg-ink lg:grid-cols-3", trackerEnter && "stagger-in")} data-testid="tracker-summary">
           <div className="cell min-w-0 bg-background p-4 sm:p-5">
             <div className="text-[10px] font-bold uppercase tracking-[0.2em]">dépensé ce mois</div>
             <div className="amount-lg mt-2">
@@ -530,7 +551,7 @@ function Result({ lines, spendable, savings, savingsRate, rent, tracking, spent,
         </div>
       )}
 
-      <ul className="grid grid-cols-2 gap-px border-t-2 border-ink bg-ink lg:grid-cols-4" data-testid="lines">
+      <ul className={cn("grid grid-cols-2 gap-px border-t-2 border-ink bg-ink lg:grid-cols-4", enter && "stagger-in base-1")} data-testid="lines">
         {lines.map((l, i) => (
           <li key={l.key} className={cn("cell flex min-h-[11rem] min-w-0 flex-col justify-between gap-3 p-4 sm:p-5", i === 0 ? "bg-ink text-paper" : "bg-background")} data-testid={`line-${l.key}`}>
             <div className="title-fluid display break-words">{l.label}</div>
@@ -574,7 +595,7 @@ function ShareBar({ percent }: { percent: number }) {
   return (
     <div className="mt-2 flex items-center gap-2">
       <svg viewBox="0 0 100 4" preserveAspectRatio="none" className="h-1.5 w-full border border-current" aria-hidden>
-        <rect x="0" y="0" width={Math.min(100, percent)} height="4" className="fill-current" />
+        <rect x="0" y="0" width={Math.min(100, percent)} height="4" className="bar fill-current" />
       </svg>
       <span className="tabular shrink-0 text-[11px]">{percent.toLocaleString("fr-FR")} %</span>
     </div>
@@ -632,6 +653,7 @@ function ShareInput({ label, value, amount, onChange }: { label: string; value: 
 function Spending({ line, spent, onSpend }: { line: PlanLine; spent: number; onSpend: (v: number) => void }) {
   const [text, setText] = useState("");
   const [error, setError] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
   const left = Math.round((line.month - spent) * 100) / 100;
   const ratio = line.month > 0 ? Math.min(1, spent / line.month) : spent > 0 ? 1 : 0;
   const id = `spend-${line.key}`;
@@ -640,6 +662,7 @@ function Spending({ line, spent, onSpend }: { line: PlanLine; spent: number; onS
     const { value, error: err } = checkAmount(text);
     if (err || !value) {
       setError(true);
+      shake(field.current);
       return;
     }
     setError(false);
@@ -649,7 +672,7 @@ function Spending({ line, spent, onSpend }: { line: PlanLine; spent: number; onS
   return (
     <div className="mt-2" data-testid={`spending-${line.key}`}>
       <svg viewBox="0 0 100 4" preserveAspectRatio="none" className="h-1.5 w-full border border-current" aria-hidden>
-        <rect x="0" y="0" width={ratio * 100} height="4" className="fill-current" />
+        <rect x="0" y="0" width={ratio * 100} height="4" className="bar fill-current" />
       </svg>
       <div className="tabular mt-1 flex flex-wrap justify-between gap-x-2 text-[11px]">
         <span>dépensé {euro(spent)}</span>
@@ -660,6 +683,7 @@ function Spending({ line, spent, onSpend }: { line: PlanLine; spent: number; onS
           dépense en {line.label}
         </label>
         <input
+          ref={field}
           id={id}
           inputMode="decimal"
           autoComplete="off"
@@ -848,7 +872,7 @@ function MicrosoftMark() {
 /** The badge grid: earned ones in ink, locked ones hatched with the hint. */
 function Badges({ owned }: { owned: Record<string, string> }) {
   return (
-    <ul className="grid grid-cols-2 gap-px border-2 border-ink bg-ink sm:grid-cols-3 lg:grid-cols-6" data-testid="badges">
+    <ul className="stagger grid grid-cols-2 gap-px border-2 border-ink bg-ink sm:grid-cols-3 lg:grid-cols-6" data-testid="badges">
       {BADGES.map((b) => {
         const date = owned[b.key];
         return (
