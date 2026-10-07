@@ -72,3 +72,50 @@ test.describe("badges", () => {
     await expect(page.getByTestId("badge-habitue")).toHaveAttribute("data-earned", "true");
   });
 });
+
+test.describe("flash moments", () => {
+  test("a badge replays the intro, then lifts; a click skips it", async ({ guarded: page }) => {
+    await page.goto("/");
+    await page.getByLabel("budget du mois").fill("1000");
+    const flash = page.getByTestId("flash");
+    await expect(flash).toContainText("premier budget");
+    await expect(flash).toBeHidden({ timeout: 4000 });
+
+    await page.getByLabel("épargne voulue").fill("100");
+    await expect(flash).toBeVisible();
+    await flash.click();
+    await expect(flash).toBeHidden();
+  });
+
+  test("going over budget and wiping everything get their moment", async ({ guarded: page }) => {
+    await page.addInitScript(() => {
+      if (!localStorage.getItem("epistudent-plan")) localStorage.setItem("epistudent-plan", JSON.stringify({ budget: "100", badges: { "premier-budget": "2026-01-01" } }));
+    });
+    await page.goto("/");
+    await page.getByTestId("toggle-tracking").click();
+    await page.getByLabel("dépense en bouffe", { exact: true }).fill("150");
+    await page.getByLabel("dépense en bouffe", { exact: true }).press("Enter");
+    // the "à la trace" badge earned by the same spending is queued behind it
+    const flash = page.getByTestId("flash");
+    await expect(flash).toContainText("dépassé.");
+    await page.keyboard.press("Escape");
+    await expect(flash).toContainText("à la trace");
+    await page.keyboard.press("Escape");
+    await expect(flash).toBeHidden();
+
+    await page.getByTestId("reset").click();
+    await page.getByTestId("reset").click();
+    await expect(flash).toContainText("à zéro.");
+    await expect(flash).toBeHidden({ timeout: 4000 });
+  });
+
+  test("never for reduced motion", async ({ browser }) => {
+    const ctx = await browser.newContext({ reducedMotion: "reduce" });
+    const page = await ctx.newPage();
+    await page.goto("/");
+    await page.getByLabel("budget du mois").fill("1000");
+    await expect(page.getByTestId("badge-toast")).toBeVisible();
+    await expect(page.getByTestId("flash")).toHaveCount(0);
+    await ctx.close();
+  });
+});

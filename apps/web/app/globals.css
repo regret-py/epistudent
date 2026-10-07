@@ -486,3 +486,61 @@ html.intro-on {
     transition: none !important;
   }
 }
+
+/* ------------------------------------------------------------------------------------------
+   Flash: the intro, replayed short for big moments (badge, overspending, reset).
+   Timings mirror flashDuration() in components/flash.tsx: 60 ms + 180 ms per word, the box
+   holds 600 ms, then the curtain lifts in 450 ms.
+   ------------------------------------------------------------------------------------------ */
+.flash {
+  --t: 240ms;
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: #fff;
+  cursor: pointer;
+  animation: intro-lift 0.45s cubic-bezier(0.7, 0, 0.3, 1) calc(var(--t) + 600ms) forwards;
+}
+.flash-n2 {
+  --t: 420ms;
+}
+.flash-n3 {
+  --t: 600ms;
+}
+.flash .flash-word {
+  animation: intro-cut 0.18s steps(1, end) 60ms forwards;
+}
+.flash .flash-word:nth-child(2) {
+  animation-delay: 240ms;
+}
+.flash .flash-word:nth-child(3) {
+  animation-delay: 420ms;
+}
+.flash-box {
+  position: relative;
+  max-width: 90vw;
+  opacity: 0;
+  text-align: center;
+  font-size: clamp(36px, 10vw, 130px);
+  background: #fff;
+  color: #000;
+  animation: intro-punch 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) var(--t) forwards;
+}
+
+/* the header logo punches like in the intro when hovered */
+@keyframes logo-punch {
+  0% {
+    transform: scale(1.18) skewX(-8deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .logo-link:hover .box-logo {
+    animation: logo-punch 0.4s cubic-bezier(0.2, 1.4, 0.4, 1);
+  }
+}

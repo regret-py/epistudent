@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, cn } from "@studybuddy/ui";
 import { BoxLogo } from "@/components/box-logo";
+import { Flash, canFlash, type FlashMoment } from "@/components/flash";
 import { MoneyInput } from "@/components/money-input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Section } from "@/components/ui";
@@ -77,6 +78,13 @@ export default function PlanPage() {
   const [announce, setAnnounce] = useState("");
   // the result animates in the first time only: typing through an invalid value must not replay it
   const [resultShown, setResultShown] = useState(false);
+  // big moments play one after the other (a badge can land together with an overspending)
+  const [flashes, setFlashes] = useState<FlashMoment[]>([]);
+  const flashId = useRef(0);
+  const play = (words: string[], word: string) => {
+    if (canFlash()) setFlashes((q) => [...q, { id: ++flashId.current, words, word }].slice(0, 3));
+  };
+  const endFlash = useCallback(() => setFlashes((q) => q.slice(1)), []);
 
   const checks = useMemo(
     () => ({ budget: checkAmount(saved.budget), savings: checkAmount(saved.savings), rent: checkAmount(saved.rent) }),
@@ -99,6 +107,15 @@ export default function PlanPage() {
   useEffect(() => {
     if (showPlan) setResultShown(true);
   }, [showPlan]);
+
+  // going over the whole month's budget gets its moment, once per crossing (not on load)
+  const over = showPlan && plan.ok && Object.values(saved.tracker.spent).reduce((a, b) => a + b, 0) > plan.spendable;
+  const wasOver = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!loaded) return;
+    if (wasOver.current === false && over) play(["stop.", "budget"], "dépassé.");
+    wasOver.current = over;
+  }, [loaded, over]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // one short, debounced announcement instead of a live region over the whole result
   useEffect(() => {
@@ -139,6 +156,7 @@ export default function PlanPage() {
     const today = dayKey();
     setSaved((s) => ({ ...s, badges: { ...s.badges, ...Object.fromEntries(earned.map((b) => [b.key, today])) } }));
     setToasts((t) => [...t, ...earned]);
+    play(["badge.", "débloqué."], earned[0]!.label);
     setAnnounce(`Badge débloqué : ${earned.map((b) => b.label).join(", ")}.`);
   }, [loaded, input.budget, input.savings, plan, saved.goal.target, customized, saved.tracker.spent, saved.visits.length, saved.badges, account.session, events]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -208,6 +226,7 @@ export default function PlanPage() {
     setConfirmReset(false);
     setCustomizing(false);
     reset();
+    play(["bouffe.", "loyer.", "sorties."], "à zéro.");
     document.getElementById("budget")?.focus();
   }
 
@@ -215,7 +234,7 @@ export default function PlanPage() {
     <div className="flex min-h-dvh flex-col">
       <header className="border-b-2 border-ink">
         <div className="container flex items-center justify-between gap-4 py-3">
-          <a href="/" aria-label="epistudent, accueil" className="py-1">
+          <a href="/" aria-label="epistudent, accueil" className="logo-link py-1">
             <BoxLogo className="text-[26px] sm:text-[32px]" />
           </a>
           <span className="no-print flex items-center gap-1">
@@ -433,6 +452,7 @@ export default function PlanPage() {
         </Section>
       </main>
 
+      {flashes[0] && <Flash key={flashes[0].id} moment={flashes[0]} onDone={endFlash} />}
       {toasts[0] && <BadgeToast key={toasts[0].key} badge={toasts[0]} />}
 
       <footer className="no-print border-t-2 border-ink">
