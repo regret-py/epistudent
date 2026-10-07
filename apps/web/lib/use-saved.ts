@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { addVisit, cleanBadges, cleanVisits } from "./badges";
 import { cleanShares, cleanTracker, decodeShare, type Tracker } from "./plan";
+import { cleanProfile, emptyProfile, type Profile } from "./profile";
 
 const KEY = "epistudent-plan";
 
@@ -17,6 +18,8 @@ export type Saved = {
   badges: Record<string, string>;
   /** distinct days the site was opened */
   visits: string[];
+  /** nickname and photo, shown in the account (never put in share links) */
+  profile: Profile;
 };
 
 export const emptySaved = (): Saved => ({
@@ -28,6 +31,7 @@ export const emptySaved = (): Saved => ({
   goal: { label: "", target: "" },
   badges: {},
   visits: [],
+  profile: emptyProfile(),
 });
 
 function clip(v: unknown, max = 20): string {
@@ -48,6 +52,7 @@ export function cleanSaved(raw: unknown): Saved {
     goal: { label: clip(g.label, 40), target: clip(g.target) },
     badges: cleanBadges(r.badges),
     visits: cleanVisits(r.visits),
+    profile: cleanProfile(r.profile),
   };
 }
 
@@ -102,19 +107,18 @@ export function useSaved() {
     }
   }, [saved, loaded]);
 
-  const reset = () => {
+  /** "tout effacer": the budget goes, the profile (nickname, photo) stays. */
+  const reset = () => setSaved((s) => ({ ...emptySaved(), profile: s.profile }));
+
+  /** Wipes this device's copy (used on sign-out so a shared computer keeps nothing). */
+  const forget = () => {
+    first.current = true;
     setSaved(emptySaved());
     try {
       localStorage.removeItem(KEY);
     } catch {
       // nothing stored
     }
-  };
-
-  /** Wipes this device's copy (used on sign-out so a shared computer keeps nothing). */
-  const forget = () => {
-    first.current = true;
-    reset();
   };
 
   return { saved, setSaved, loaded, reset, forget, fromLink };
