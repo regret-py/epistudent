@@ -187,3 +187,129 @@
     break-inside: avoid;
   }
 }
+
+/* ------------------------------------------------------------------------------------------
+   Intro: black screen, words hard-cut like a lookbook, the box logo punches in, the curtain
+   lifts. Shown only when /intro.js sets html.intro-on (once per session).
+   ------------------------------------------------------------------------------------------ */
+.intro {
+  display: none;
+}
+html.intro-on .intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: #fff;
+  cursor: pointer;
+  animation: intro-lift 0.55s cubic-bezier(0.7, 0, 0.3, 1) 2.3s forwards;
+}
+.intro-words {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.intro-word {
+  grid-area: 1 / 1;
+  opacity: 0;
+  font-family: var(--font-display), Futura, sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.04em;
+  font-size: clamp(56px, 17vw, 220px);
+  line-height: 1;
+}
+html.intro-on .intro-word {
+  animation: intro-cut 0.28s steps(1, end) forwards;
+}
+html.intro-on .intro-word-0 {
+  animation-delay: 0.1s;
+}
+html.intro-on .intro-word-1 {
+  animation-delay: 0.38s;
+}
+html.intro-on .intro-word-2 {
+  animation-delay: 0.66s;
+}
+html.intro-on .intro-word-3 {
+  animation-delay: 0.94s;
+}
+.intro-logo {
+  position: relative;
+  opacity: 0;
+  font-size: clamp(44px, 12vw, 150px);
+  background: #fff;
+  color: #000;
+}
+html.intro-on .intro-logo {
+  animation: intro-punch 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) 1.25s forwards;
+}
+.intro-tag,
+.intro-skip {
+  position: absolute;
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  font-weight: 700;
+  opacity: 0;
+}
+.intro-tag {
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  left: 24px;
+}
+.intro-skip {
+  top: calc(20px + env(safe-area-inset-top));
+  right: 24px;
+}
+html.intro-on .intro-tag {
+  animation: intro-fade 0.3s ease 1.5s forwards;
+}
+html.intro-on .intro-skip {
+  animation: intro-fade 0.3s ease 0.3s forwards;
+}
+@keyframes intro-cut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-punch {
+  0% {
+    opacity: 0;
+    transform: scale(1.6) skewX(-8deg);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) skewX(0);
+  }
+}
+@keyframes intro-fade {
+  to {
+    opacity: 0.8;
+  }
+}
+@keyframes intro-lift {
+  to {
+    transform: translateY(-100%);
+    visibility: hidden;
+  }
+}
+
+/* badge toast slides in */
+.badge-toast {
+  animation: toast-in 0.35s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+@keyframes toast-in {
+  from {
+    transform: translateY(24px) scale(0.96);
+    opacity: 0;
+  }
+}

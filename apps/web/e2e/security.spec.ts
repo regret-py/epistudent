@@ -60,7 +60,7 @@ test("refuses to run inside a frame (clickjacking)", async ({ page, baseURL }) =
 test("404 page", async ({ page }) => {
   const res = await page.goto("/nope/");
   expect(res?.status()).toBe(404);
-  await expect(page.locator(".box-logo")).toHaveText("404");
+  await expect(page.locator("main .box-logo")).toHaveText("404");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("page introuvable.");
   await expect(page).toHaveTitle(/Page introuvable/);
 });

@@ -25,6 +25,7 @@ import {
   withShares,
   type PlanLine,
 } from "@/lib/plan";
+import { BADGES, dayKey, formatBadgeDate, newlyEarned, type Badge } from "@/lib/badges";
 import { useAccount } from "@/lib/use-account";
 import { useSaved } from "@/lib/use-saved";
 
@@ -64,6 +65,8 @@ export default function PlanPage() {
   const account = useAccount({ saved, setSaved, loaded, forget });
   const [trackingOpen, setTrackingOpen] = useState<boolean | null>(null);
   const [linkState, setLinkState] = useState<"ok" | "error" | null>(null);
+  const [events, setEvents] = useState<ReadonlySet<string>>(() => new Set());
+  const [toasts, setToasts] = useState<Badge[]>([]);
   const [customizing, setCustomizing] = useState(false);
   const [copied, setCopied] = useState<"ok" | "error" | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -102,6 +105,39 @@ export default function PlanPage() {
     return () => clearTimeout(t);
   }, [loaded, invalid.length, showPlan, plan]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // award badges as soon as their condition is met; they're kept once earned
+  useEffect(() => {
+    if (!loaded) return;
+    const earned = newlyEarned(
+      {
+        budget: input.budget,
+        savings: input.savings,
+        savingsRate: plan.ok ? plan.savingsRate : 0,
+        goalTarget: checkAmount(saved.goal.target).value ?? 0,
+        customized,
+        spent: saved.tracker.spent,
+        lines: plan.ok ? plan.lines : [],
+        spendable: plan.ok ? plan.spendable : 0,
+        visits: saved.visits.length,
+        signedIn: Boolean(account.session),
+        events,
+        hour: new Date().getHours(),
+      },
+      saved.badges,
+    );
+    if (!earned.length) return;
+    const today = dayKey();
+    setSaved((s) => ({ ...s, badges: { ...s.badges, ...Object.fromEntries(earned.map((b) => [b.key, today])) } }));
+    setToasts((t) => [...t, ...earned]);
+    setAnnounce(`Badge débloqué : ${earned.map((b) => b.label).join(", ")}.`);
+  }, [loaded, input.budget, input.savings, plan, saved.goal.target, customized, saved.tracker.spent, saved.visits.length, saved.badges, account.session, events]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!toasts.length) return;
+    const t = setTimeout(() => setToasts((q) => q.slice(1)), 3200);
+    return () => clearTimeout(t);
+  }, [toasts]);
+
   useEffect(() => {
     if (!confirmReset) return;
     const t = setTimeout(() => setConfirmReset(false), 4000);
@@ -134,6 +170,7 @@ export default function PlanPage() {
       }
       setLinkState("ok");
       setAnnounce("Lien copié.");
+      setEvents((e) => new Set(e).add("share"));
     } catch (err) {
       // closing the share sheet is not an error
       if (!(err instanceof DOMException && err.name === "AbortError")) setLinkState("error");
@@ -337,6 +374,12 @@ export default function PlanPage() {
           </Section>
         )}
 
+        {loaded && (
+          <Section title="tes badges" id="badges" aside={`${Object.keys(saved.badges).length} / ${BADGES.length}`} className="no-print mt-16">
+            <Badges owned={saved.badges} />
+          </Section>
+        )}
+
         <Section title="ton compte" id="compte" className="no-print mt-16">
           <AccountPanel account={account} />
         </Section>
@@ -352,6 +395,8 @@ export default function PlanPage() {
           </dl>
         </Section>
       </main>
+
+      {toasts[0] && <BadgeToast key={toasts[0].key} badge={toasts[0]} />}
 
       <footer className="no-print border-t-2 border-ink">
         <div className="container flex flex-wrap items-center justify-between gap-3 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-[11px] lowercase">
@@ -766,5 +811,39 @@ function MicrosoftMark() {
       <rect x="1" y="11" width="9" height="9" className="fill-current" opacity="0.55" />
       <rect x="11" y="11" width="9" height="9" className="fill-current" opacity="0.85" />
     </svg>
+  );
+}
+
+/** The badge grid: earned ones in ink, locked ones hatched with the hint. */
+function Badges({ owned }: { owned: Record<string, string> }) {
+  return (
+    <ul className="grid grid-cols-2 gap-px border-2 border-ink bg-ink sm:grid-cols-3 lg:grid-cols-6" data-testid="badges">
+      {BADGES.map((b) => {
+        const date = owned[b.key];
+        return (
+          <li
+            key={b.key}
+            className={cn("cell relative flex aspect-square min-w-0 flex-col justify-between overflow-hidden p-3 sm:p-4", date ? "bg-ink text-paper" : "bg-background")}
+            data-testid={`badge-${b.key}`}
+            data-earned={date ? "true" : "false"}
+          >
+            {!date && <div aria-hidden className="hatch absolute inset-0 opacity-[0.08]" />}
+            <span className={cn("relative text-[9px] font-bold uppercase tracking-[0.2em]", !date && "text-muted-foreground")}>{date ? "débloqué" : "verrouillé"}</span>
+            <span className={cn("display relative break-words text-[length:clamp(16px,13cqw,26px)] leading-none", !date && "text-muted-foreground")}>{b.label}</span>
+            <span className={cn("relative text-[10px] leading-tight", date ? "opacity-70" : "text-muted-foreground")}>{date ? `le ${formatBadgeDate(date)}` : b.hint}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function BadgeToast({ badge }: { badge: Badge }) {
+  return (
+    <div className="badge-toast no-print fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 mx-auto max-w-sm border-2 border-paper bg-ink p-4 text-paper sm:left-6 sm:right-auto" data-testid="badge-toast" aria-hidden>
+      <div className="text-[9px] font-bold uppercase tracking-[0.25em]">badge débloqué</div>
+      <div className="display mt-1 text-[28px] leading-none">{badge.label}</div>
+      <div className="mt-1 text-[11px] opacity-70">{badge.hint}</div>
+    </div>
   );
 }

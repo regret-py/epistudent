@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { addVisit, cleanBadges, cleanVisits } from "./badges";
 import { cleanShares, cleanTracker, decodeShare, type Tracker } from "./plan";
 
 const KEY = "epistudent-plan";
@@ -12,9 +13,22 @@ export type Saved = {
   shares: Record<string, number>;
   tracker: Tracker;
   goal: { label: string; target: string };
+  /** badge key → day earned (YYYY-MM-DD) */
+  badges: Record<string, string>;
+  /** distinct days the site was opened */
+  visits: string[];
 };
 
-export const emptySaved = (): Saved => ({ budget: "", savings: "", rent: "", shares: {}, tracker: cleanTracker(null), goal: { label: "", target: "" } });
+export const emptySaved = (): Saved => ({
+  budget: "",
+  savings: "",
+  rent: "",
+  shares: {},
+  tracker: cleanTracker(null),
+  goal: { label: "", target: "" },
+  badges: {},
+  visits: [],
+});
 
 function clip(v: unknown, max = 20): string {
   return typeof v === "string" ? v.slice(0, max) : "";
@@ -32,6 +46,8 @@ export function cleanSaved(raw: unknown): Saved {
     shares: cleanShares(r.shares),
     tracker: cleanTracker(r.tracker),
     goal: { label: clip(g.label, 40), target: clip(g.target) },
+    badges: cleanBadges(r.badges),
+    visits: cleanVisits(r.visits),
   };
 }
 
@@ -44,12 +60,10 @@ export function useSaved() {
 
   useEffect(() => {
     let next = emptySaved();
-    let changed = false;
     try {
       const raw: unknown = JSON.parse(localStorage.getItem(KEY) ?? "null");
       if (raw && typeof raw === "object" && !Array.isArray(raw)) {
         next = cleanSaved(raw);
-        changed = true;
       }
     } catch {
       // corrupted or blocked storage: start fresh
@@ -58,7 +72,6 @@ export function useSaved() {
     const shared = decodeShare(window.location.hash);
     if (shared) {
       next = { ...next, ...shared };
-      changed = true;
       setFromLink(true);
       history.replaceState(null, "", window.location.pathname + window.location.search);
     }
@@ -67,13 +80,12 @@ export function useSaved() {
       const typed = (document.getElementById(field) as HTMLInputElement | null)?.value ?? "";
       if (typed.trim()) {
         next = { ...next, [field]: clip(typed) };
-        changed = true;
       }
     }
-    if (changed) {
-      first.current = false;
-      setSaved(next);
-    }
+    // count today's visit (for the "habitué" / "fidèle" badges)
+    next = { ...next, visits: addVisit(next.visits) };
+    first.current = false;
+    setSaved(next);
     setLoaded(true);
   }, []);
 

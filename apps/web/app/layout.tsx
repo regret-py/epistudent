@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Jost } from "next/font/google";
 import { FrameGuard } from "@/components/frame-guard";
+import { Intro } from "@/components/intro";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
@@ -30,8 +31,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        {/* must run before the first paint to decide on the intro; same-origin, so the CSP allows it */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/intro.js" />
+      </head>
       <body className={`${display.variable} min-h-dvh font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          <Intro />
           <FrameGuard>{children}</FrameGuard>
         </ThemeProvider>
       </body>

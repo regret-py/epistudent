@@ -3,6 +3,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "./supabase";
+import { cleanVisits } from "./badges";
 import { cleanSaved, type Saved } from "./use-saved";
 
 export type SyncStatus = "idle" | "loading" | "saving" | "saved" | "error";
@@ -61,8 +62,12 @@ export function useAccount({ saved, setSaved, loaded, forget }: { saved: Saved; 
         return;
       }
       if (data) {
-        skipUpload.current = true;
-        setSaved(cleanSaved(data.data));
+        // the account copy wins, but badges and visit days from this device are kept
+        const remote = cleanSaved(data.data);
+        const local = savedRef.current;
+        const badges = { ...local.badges, ...remote.badges };
+        for (const [k, d] of Object.entries(local.badges)) if (remote.badges[k] && d < remote.badges[k]!) badges[k] = d;
+        setSaved({ ...remote, badges, visits: cleanVisits([...remote.visits, ...local.visits]) });
         setNotice("Budget récupéré depuis ton compte.");
         setStatus("saved");
       } else {

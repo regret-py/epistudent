@@ -4,7 +4,7 @@ const shareInput = (label: string) => `part « ${label} » en pourcentage`;
 
 test.beforeEach(async ({ guarded: page }) => {
   await page.goto("/");
-  await expect(page.locator(".box-logo").first()).toHaveText("epistudent");
+  await expect(page.locator("header .box-logo")).toHaveText("epistudent");
 });
 
 test("budget + savings + rent give a split per category", async ({ guarded: page }) => {
