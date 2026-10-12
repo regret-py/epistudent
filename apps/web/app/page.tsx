@@ -28,6 +28,7 @@ import {
 } from "@/lib/plan";
 import { BADGES, dayKey, formatBadgeDate, newlyEarned, type Badge } from "@/lib/badges";
 import { shake } from "@/lib/motion";
+import { avatarFromFile, cleanName, NAME_MAX, type Profile } from "@/lib/profile";
 import { useAccount } from "@/lib/use-account";
 import { useSaved } from "@/lib/use-saved";
 
@@ -238,7 +239,7 @@ export default function PlanPage() {
             <BoxLogo className="text-[26px] sm:text-[32px]" />
           </a>
           <span className="no-print flex items-center gap-1">
-            <AccountButton account={account} />
+            <AccountButton account={account} profile={saved.profile} />
             <ThemeToggle />
           </span>
         </div>
@@ -437,7 +438,7 @@ export default function PlanPage() {
         </Section>
 
         <Section title="ton compte" id="compte" className="reveal no-print mt-16">
-          <AccountPanel account={account} />
+          <AccountPanel account={account} profile={saved.profile} onProfile={(profile) => setSaved((s) => ({ ...s, profile }))} />
         </Section>
 
         <Section title="questions" id="faq" className="reveal no-print mt-20">
@@ -800,7 +801,26 @@ const SYNC_LABEL: Record<string, string> = {
   error: "hors ligne, réessai à la prochaine modif",
 };
 
-function AccountButton({ account }: { account: Account }) {
+/** Name shown for the signed-in user: the nickname, else the Microsoft name, else the email. */
+function displayName(account: Account, profile: Profile) {
+  const user = account.session?.user;
+  return profile.name.trim() || ((user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? "");
+}
+
+/** The photo, or the initial in an ink box. */
+function Avatar({ profile, fallback, className }: { profile: Profile; fallback: string; className?: string }) {
+  if (profile.avatar)
+    // a data: URL made in the browser; next/image has nothing to optimise here
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={profile.avatar} alt="" className={cn("shrink-0 bg-ink object-cover", className)} data-testid="avatar" />;
+  return (
+    <span aria-hidden className={cn("grid shrink-0 place-items-center bg-ink font-bold uppercase text-paper", className)}>
+      {fallback.trim().slice(0, 1) || "?"}
+    </span>
+  );
+}
+
+function AccountButton({ account, profile }: { account: Account; profile: Profile }) {
   if (!account.ready) return null;
   if (!account.session) {
     return (
@@ -810,18 +830,39 @@ function AccountButton({ account }: { account: Account }) {
     );
   }
   const email = account.session.user.email ?? "";
+  const nickname = profile.name.trim();
   return (
     <a href="#compte" className="link flex min-h-11 items-center gap-2 px-2 text-[12px] lowercase" data-testid="account-chip" title={email}>
-      <span aria-hidden className="grid size-6 place-items-center bg-ink text-[11px] font-bold uppercase text-paper">
-        {email.slice(0, 1) || "?"}
-      </span>
-      <span className="hidden sm:inline">mon compte</span>
+      <Avatar profile={profile} fallback={displayName(account, profile)} className="size-6 text-[11px]" />
+      <span className="hidden max-w-[12ch] truncate sm:inline">{nickname || "mon compte"}</span>
     </a>
   );
 }
 
-function AccountPanel({ account }: { account: Account }) {
+const PHOTO_ERRORS: Record<string, string> = {
+  type: "Choisis une image (JPEG, PNG, WebP…).",
+  size: "Image trop lourde (15 Mo maximum).",
+  decode: "Impossible de lire cette image.",
+};
+
+function AccountPanel({ account, profile, onProfile }: { account: Account; profile: Profile; onProfile: (p: Profile) => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const file = useRef<HTMLInputElement>(null);
+  async function pick(f: File | undefined) {
+    if (!f) return;
+    setBusy(true);
+    setPhotoError(null);
+    try {
+      onProfile({ ...profile, avatar: await avatarFromFile(f) });
+    } catch (e) {
+      setPhotoError(PHOTO_ERRORS[e instanceof Error ? e.message : ""] ?? PHOTO_ERRORS.decode!);
+    } finally {
+      setBusy(false);
+      if (file.current) file.current.value = ""; // picking the same file again still fires
+    }
+  }
   if (!account.ready) return null;
   if (!account.session) {
     return (
@@ -841,15 +882,68 @@ function AccountPanel({ account }: { account: Account }) {
     );
   }
   const user = account.session.user;
-  const name = (user.user_metadata?.full_name as string | undefined) ?? user.email ?? "";
+  const fullName = (user.user_metadata?.full_name as string | undefined) ?? user.email ?? "";
+  const name = displayName(account, profile);
   return (
     <div className="grid gap-px border-2 border-ink bg-ink sm:grid-cols-[1.5fr_1fr]">
       <div className="bg-background p-4 sm:p-5">
-        <div className="text-[10px] font-bold uppercase tracking-[0.2em]">connecté</div>
-        <p className="display mt-2 break-all text-[22px] leading-tight" data-testid="account-name">
-          {name}
-        </p>
-        <p className="mt-1 text-[12px] text-muted-foreground">{user.email}</p>
+        <div className="flex items-center gap-4">
+          <Avatar profile={profile} fallback={name} className="size-20 border-2 border-ink text-[34px]" />
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em]">connecté</div>
+            <p className="display mt-1 break-all text-[22px] leading-tight" data-testid="account-name">
+              {name}
+            </p>
+            <p className="mt-1 break-all text-[12px] text-muted-foreground">{user.email}</p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="pseudo" className="label">
+              pseudo
+            </label>
+            <input
+              id="pseudo"
+              className="field"
+              maxLength={NAME_MAX}
+              autoComplete="nickname"
+              spellCheck={false}
+              placeholder={fullName.split(/[\s@]/)[0] || "ton pseudo"}
+              value={profile.name}
+              onChange={(e) => onProfile({ ...profile, name: cleanName(e.target.value) })}
+            />
+          </div>
+          <div>
+            <span className="label">photo de profil</span>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" disabled={busy} onClick={() => file.current?.click()} data-testid="avatar-pick">
+                {busy ? "…" : profile.avatar ? "changer" : "ajouter une photo"}
+              </Button>
+              {profile.avatar && (
+                <Button variant="outline" onClick={() => onProfile({ ...profile, avatar: "" })} data-testid="avatar-remove">
+                  retirer
+                </Button>
+              )}
+            </div>
+            <input
+              ref={file}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              tabIndex={-1}
+              aria-hidden
+              data-testid="avatar-input"
+              onChange={(e) => void pick(e.target.files?.[0])}
+            />
+          </div>
+        </div>
+        {photoError && (
+          <p className="mt-2 text-[11px] font-bold" role="alert" data-testid="avatar-error">
+            {photoError}
+          </p>
+        )}
+        <p className="mt-2 text-[11px] text-muted-foreground">Recadrée en carré et réduite sur ton appareil, puis gardée avec ton budget. Visible seulement par toi.</p>
         <p className="mt-3 text-[12px] font-bold" data-testid="sync-status" aria-live="off">
           {SYNC_LABEL[account.status]}
         </p>

@@ -67,7 +67,9 @@ export function useAccount({ saved, setSaved, loaded, forget }: { saved: Saved; 
         const local = savedRef.current;
         const badges = { ...local.badges, ...remote.badges };
         for (const [k, d] of Object.entries(local.badges)) if (remote.badges[k] && d < remote.badges[k]!) badges[k] = d;
-        setSaved({ ...remote, badges, visits: cleanVisits([...remote.visits, ...local.visits]) });
+        // a profile set on this device before the account had one is kept too
+        const profile = remote.profile.name || remote.profile.avatar ? remote.profile : local.profile;
+        setSaved({ ...remote, badges, profile, visits: cleanVisits([...remote.visits, ...local.visits]) });
         setNotice("Budget récupéré depuis ton compte.");
         setStatus("saved");
       } else {
